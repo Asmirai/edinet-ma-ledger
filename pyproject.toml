@@ -3,4 +3,33 @@ name = "edinet-ma-ledger"
 version = "0.1.0"
 description = "有価証券報告書の企業結合の注記から、上場企業の M&A の一覧を作る"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "httpx>=0.28.1",
+]
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.40.2",
+    "pytest>=9.1.1",
+    "ruff>=0.17.0",
+]
+
+[tool.pytest.ini_options]
+# テストは対象と同じディレクトリの *.test.py に置き、関数名は日本語にする（AGENTS.md）。集め方は conftest.py
+testpaths = ["."]
+python_files = ["*.test.py"]
+pythonpath = ["."]
+
+[tool.basedpyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.12"
+include = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I"]
+# 行幅は表示幅で数えるため、日本語の文字列で頻発する。整形は formatter に任せる
+ignore = ["E501"]
