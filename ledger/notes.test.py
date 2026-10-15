@@ -1,11 +1,12 @@
 import io
 import json
 import zipfile
+from datetime import date
 from pathlib import Path
 
 import httpx
 
-from ledger.notes import extract_business_combination_notes, save_notes
+from ledger.notes import annual_reports, extract_business_combination_notes, save_notes
 
 HEADER = [
     "要素ID",
@@ -143,3 +144,25 @@ def 注記を保存済みの有報は取り直さない(tmp_path: Path) -> None:
     )
 
     assert seen == ["S2"]
+
+
+def _listed(doc_id: str, csv_flag: str) -> dict[str, str]:
+    return {
+        "docID": doc_id,
+        "ordinanceCode": "010",
+        "docTypeCode": "120",
+        "withdrawalStatus": "0",
+        "docInfoEditStatus": "0",
+        "disclosureStatus": "0",
+        "legalStatus": "1",
+        "csvFlag": csv_flag,
+    }
+
+
+def CSVが無い有報は集めない(tmp_path: Path) -> None:
+    documents = [_listed("S1", "1"), _listed("S2", "0")]
+    (tmp_path / "2025-06-27.json").write_text(json.dumps(documents), encoding="utf-8")
+
+    reports = annual_reports(tmp_path, date(2025, 6, 27), date(2025, 6, 27))
+
+    assert [report["docID"] for report in reports] == ["S1"]
