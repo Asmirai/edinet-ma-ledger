@@ -2,10 +2,16 @@
 
 1つの注記に何件も書かれていると、8B のモデルは金額を取りこぼす。そこで二段に分ける。
 一段目で案件の一覧（名前・種類・期）を出させ、二段目で「取得」の案件ごとに、その案件の部分だけを渡して詳細を聞く。
+
+使い方：uv run python -m ledger.deals
+（注記を ledger.notes で先に取っておく。Ollama を起動しておく）
 """
 
 import json
+import os
 import unicodedata
+from collections import Counter
+from pathlib import Path
 from typing import Any, cast
 
 import httpx
@@ -22,6 +28,10 @@ PRIOR_PERIOD = "前期"
 PRIOR_PERIOD_WORDS = ("前連結会計年度", "前事業年度")
 # モデルが空の値を、null ではなく文字で返すことがある
 EMPTY_VALUES = ("", "null", "none", "-", "－")
+NOTES_DIR = Path("data/notes")
+DEALS_DIR = Path("data/deals")
+# 書類一覧から写した項目を、案件のファイルにも写す
+KEPT_FIELDS = ("docID", "edinetCode", "secCode", "filerName", "periodEnd")
 # 注記は長いもので 1 万字を超える。日本語はほぼ 1 字 1 トークンなので、既定の文脈長では切れる
 OPTIONS = {"temperature": 0, "num_ctx": 16384}
 
@@ -113,6 +123,42 @@ def extract_deals(client: httpx.Client, note_text: str, model: str) -> list[dict
         detailed = deal | details
         deals.append(detailed | {"unverified": unverified_fields(detailed, section)})
     return deals
+
+
+def save_deals(client: httpx.Client, notes_dir: Path, deals_dir: Path, model: str) -> None:
+    """有報ごとの注記から案件を抜き出し、deals_dir/{docID}.json に保存する。保存済みの有報は飛ばす。
+
+    連結の注記に中身があれば、個別の注記は使わない。個別の注記は親会社だけの話で、連結の注記と重なる。
+    抜き出しに失敗した有報は、エラーを記録して次に進む（一晩回す処理を1件で止めないため）。
+    """
+    deals_dir.mkdir(parents=True, exist_ok=True)
+    for notes_path in sorted(notes_dir.glob("*.json")):
+        deals_path = deals_dir / notes_path.name
+        if deals_path.exists():
+            continue
+        report = cast(dict[str, Any], json.loads(notes_path.read_text(encoding="utf-8")))
+        saved: dict[str, Any] = {field: report[field] for field in KEPT_FIELDS}
+        deals: list[dict[str, Any]] = []
+        try:
+            for note in _notes_to_read(cast(list[dict[str, str]], report["notes"])):
+                found = extract_deals(client, note["text"], model)
+                deals.extend(deal | {"element": note["element"]} for deal in found)
+        except (json.JSONDecodeError, KeyError, httpx.HTTPError) as error:
+            deals = []
+            saved["error"] = f"{type(error).__name__}: {error}"
+        saved["deals"] = deals
+        deals_path.write_text(json.dumps(saved, ensure_ascii=False), encoding="utf-8")
+
+
+def _notes_to_read(notes: list[dict[str, str]]) -> list[dict[str, str]]:
+    substantive = [note for note in notes if is_substantive(note["text"])]
+    consolidated = [note for note in substantive if "Consolidated" in note["element"]]
+    chosen = consolidated or substantive
+    # 同じ文章が別のコンテキストで2回入っていることがある
+    unique: dict[str, dict[str, str]] = {}
+    for note in chosen:
+        unique.setdefault(note["text"], note)
+    return list(unique.values())
 
 
 def clean_listed(listed: list[dict[str, Any]], note_text: str) -> list[dict[str, Any]]:
@@ -207,3 +253,26 @@ def _drop_empty(details: dict[str, Any]) -> dict[str, Any]:
 def _normalize(text: str) -> str:
     """全角・半角をそろえ（NFKC）、空白とカンマを除く。照合と数字の読み取りで同じそろえ方を使う。"""
     return "".join(unicodedata.normalize("NFKC", text).split()).replace(",", "")
+
+
+def main() -> None:
+    model = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
+    base_url = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
+    # 長い注記は1回の応答に1分を超える
+    with httpx.Client(base_url=base_url, timeout=900) as client:
+        save_deals(client, NOTES_DIR, DEALS_DIR, model)
+    kinds: Counter[str] = Counter()
+    verified = errors = 0
+    for path in DEALS_DIR.glob("*.json"):
+        saved = cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
+        errors += "error" in saved
+        for deal in cast(list[dict[str, Any]], saved["deals"]):
+            kinds[deal["kind"]] += 1
+            verified += deal["kind"] == ACQUISITION and not deal["unverified"]
+    print(
+        f"案件の種類：{dict(kinds)}。取得のうち全項目を照合できたもの：{verified} 件。失敗した有報：{errors} 件"
+    )
+
+
+if __name__ == "__main__":
+    main()
