@@ -1,0 +1,6 @@
+[project]
+name = "edinet-ma-ledger"
+version = "0.1.0"
+description = "有価証券報告書の企業結合の注記から、上場企業の M&A の一覧を作る"
+requires-python = ">=3.12"
+dependencies = []
