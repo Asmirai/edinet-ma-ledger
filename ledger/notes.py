@@ -77,12 +77,19 @@ def save_notes(
 
 
 def annual_reports(lists_dir: Path, start: date, end: date) -> list[dict[str, Any]]:
-    """保存した書類一覧から、期間に提出された会社の有報を集める。"""
+    """保存した書類一覧から、期間に提出された会社の有報のうち、CSV があるものを集める。
+
+    外国の会社などの有報には XBRL が無く、CSV を取ろうとすると 404 になる（1年分の約3%）。
+    """
     reports: list[dict[str, Any]] = []
     for path in sorted(lists_dir.glob("*.json")):
         if start <= date.fromisoformat(path.stem) <= end:
             documents = cast(list[dict[str, Any]], json.loads(path.read_text(encoding="utf-8")))
-            reports.extend(document for document in documents if is_annual_report(document))
+            reports.extend(
+                document
+                for document in documents
+                if is_annual_report(document) and document["csvFlag"] == "1"
+            )
     return reports
 
 
