@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -7,6 +8,7 @@ from ledger.deals import (
     clean_listed,
     extract_deals,
     is_substantive,
+    save_deals,
     section_for,
     to_yen,
     unverified_fields,
@@ -171,3 +173,79 @@ def LLMがJSONでない応答を返せば止める() -> None:
 
     with pytest.raises(json.JSONDecodeError):
         extract_deals(client, NOTE, "qwen3:8b")
+
+
+def _notes_file(path: Path, doc_id: str, notes: list[dict[str, str]]) -> None:
+    saved = {
+        "docID": doc_id,
+        "edinetCode": "E00001",
+        "secCode": "10000",
+        "filerName": "テスト株式会社",
+        "periodEnd": "2025-03-31",
+        "notes": notes,
+    }
+    (path / f"{doc_id}.json").write_text(json.dumps(saved, ensure_ascii=False), encoding="utf-8")
+
+
+CONSOLIDATED = "jpcrp_cor:NotesBusinessCombinationsConsolidatedFinancialStatementsTextBlock"
+NON_CONSOLIDATED = "jpcrp_cor:NotesBusinessCombinationsFinancialStatementsTextBlock"
+
+
+def 連結の注記から案件を抜き出して保存する(tmp_path: Path) -> None:
+    (tmp_path / "notes").mkdir()
+    notes = [
+        {"element": CONSOLIDATED, "context": "CurrentYearDuration", "text": NOTE},
+        {"element": NON_CONSOLIDATED, "context": "CurrentYearDuration", "text": NOTE + "個別"},
+    ]
+    _notes_file(tmp_path / "notes", "S1", notes)
+    prompts: list[str] = []
+
+    save_deals(
+        _ollama([_listed("株式会社アドウィル")], prompts),
+        tmp_path / "notes",
+        tmp_path / "deals",
+        "qwen3:8b",
+    )
+
+    saved = json.loads((tmp_path / "deals" / "S1.json").read_text(encoding="utf-8"))
+    assert saved["filerName"] == "テスト株式会社"
+    assert saved["deals"] == [_deal() | {"unverified": [], "element": CONSOLIDATED}]
+    assert len(prompts) == 2
+
+
+def 中身のある注記が無い有報はLLMを呼ばずに空で保存する(tmp_path: Path) -> None:
+    (tmp_path / "notes").mkdir()
+    boilerplate = "（企業結合等関係）該当事項はありません。"
+    _notes_file(
+        tmp_path / "notes",
+        "S1",
+        [{"element": CONSOLIDATED, "context": "CurrentYearDuration", "text": boilerplate}],
+    )
+    prompts: list[str] = []
+
+    save_deals(_ollama([], prompts), tmp_path / "notes", tmp_path / "deals", "qwen3:8b")
+
+    saved = json.loads((tmp_path / "deals" / "S1.json").read_text(encoding="utf-8"))
+    assert saved["deals"] == []
+    assert prompts == []
+
+
+def 抜き出しに失敗した有報はエラーを記録して次に進む(tmp_path: Path) -> None:
+    (tmp_path / "notes").mkdir()
+    note = {"element": CONSOLIDATED, "context": "CurrentYearDuration", "text": NOTE}
+    _notes_file(tmp_path / "notes", "S1", [note])
+    _notes_file(tmp_path / "notes", "S2", [note])
+    calls: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        calls.append("call")
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": "すみません"}})
+
+    client = httpx.Client(transport=httpx.MockTransport(handle), base_url="http://ollama")
+
+    save_deals(client, tmp_path / "notes", tmp_path / "deals", "qwen3:8b")
+
+    for doc_id in ("S1", "S2"):
+        saved = json.loads((tmp_path / "deals" / f"{doc_id}.json").read_text(encoding="utf-8"))
+        assert saved["deals"] == []
+        assert "JSONDecodeError" in saved["error"]
