@@ -13,3 +13,11 @@
 1. EDINET の閲覧サイトでアカウントを作り、API キーを取る
 2. `cp .env.example .env` で `.env` を作り、`EDINET_API_KEY` にキーを書く。`.env` はコミットしない
 3. `uv sync` で依存を入れる
+
+## 書類一覧を取る
+
+```bash
+uv run --env-file .env python -m ledger.document_lists 2024-10-01 2025-09-30
+```
+
+期間の各日の書類一覧を `data/document_lists/YYYY-MM-DD.json` に保存し、月ごとの有報の件数を出す。呼ぶたびに1秒空ける。途中で止まっても、保存済みの日は取り直さない。当日の一覧はまだ増えるので、終わりの日は昨日以前にする。
