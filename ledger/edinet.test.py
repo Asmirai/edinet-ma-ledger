@@ -4,7 +4,12 @@ from datetime import date
 import httpx
 import pytest
 
-from ledger.edinet import EdinetError, fetch_document_list, is_annual_report
+from ledger.edinet import (
+    EdinetError,
+    fetch_document_csv_zip,
+    fetch_document_list,
+    is_annual_report,
+)
 
 
 def _client(status_code: int, body: str, seen: list[httpx.Request] | None = None) -> httpx.Client:
@@ -115,3 +120,34 @@ def 不開示の有報は除く() -> None:
 
 def 投資信託などのファンドの有報は除く() -> None:
     assert not is_annual_report(_annual_report(ordinanceCode="030"))
+
+
+def 書類のZIPを返す() -> None:
+    seen: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(
+            200, content=b"PK-zip", headers={"Content-Type": "application/octet-stream"}
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handle))
+
+    assert fetch_document_csv_zip(client, "S100W7EN", "key") == b"PK-zip"
+    assert seen[0].url.path == "/api/v2/documents/S100W7EN"
+    assert seen[0].url.params["type"] == "5"
+    assert seen[0].url.params["Subscription-Key"] == "key"
+
+
+def 書類が取れずJSONが返れば止める() -> None:
+    body = json.dumps({"metadata": {"status": "404", "message": "Not Found"}})
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, text=body, headers={"Content-Type": "application/json; charset=utf-8"}
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handle))
+
+    with pytest.raises(EdinetError, match="404 Not Found"):
+        fetch_document_csv_zip(client, "S100W7EN", "key")
