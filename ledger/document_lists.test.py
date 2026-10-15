@@ -21,6 +21,7 @@ def _client(seen: list[str]) -> httpx.Client:
 
 def _document(doc_type: str) -> dict[str, str]:
     return {
+        "ordinanceCode": "010",
         "docTypeCode": doc_type,
         "withdrawalStatus": "0",
         "docInfoEditStatus": "0",

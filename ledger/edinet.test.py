@@ -28,6 +28,7 @@ def _ok(results: list[dict[str, object]]) -> str:
 def _annual_report(**changes: object) -> dict[str, object]:
     document: dict[str, object] = {
         "docID": "S1000001",
+        "ordinanceCode": "010",
         "docTypeCode": "120",
         "withdrawalStatus": "0",
         "docInfoEditStatus": "0",
@@ -110,3 +111,7 @@ def 書類情報が修正された有報は残す() -> None:
 
 def 不開示の有報は除く() -> None:
     assert not is_annual_report(_annual_report(disclosureStatus="2"))
+
+
+def 投資信託などのファンドの有報は除く() -> None:
+    assert not is_annual_report(_annual_report(ordinanceCode="030"))
