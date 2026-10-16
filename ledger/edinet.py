@@ -1,5 +1,6 @@
 """EDINET API v2 の書類一覧 API と書類取得 API（仕様書 Version 2 の 3-1、3-2）。"""
 
+import time
 from collections.abc import Mapping
 from datetime import date
 from typing import Any, cast
@@ -13,6 +14,9 @@ CSV_ZIP = "5"
 ANNUAL_REPORT = "120"
 # 企業内容等の開示に関する内閣府令。特定有価証券（投資信託などのファンド）は "030"
 CORPORATE_ORDINANCE = "010"
+# 書類取得 API は、応答を返さずに接続を切ることがある（8年分を取る間に何度も起きた）。そのときは待って取り直す
+ATTEMPTS = 5
+RETRY_WAIT_SECONDS = 60
 
 
 class EdinetError(Exception):
@@ -34,9 +38,17 @@ def fetch_document_list(client: httpx.Client, day: date, api_key: str) -> list[d
 
 def fetch_document_csv_zip(client: httpx.Client, doc_id: str, api_key: str) -> bytes:
     """書類の XBRL を CSV に変換したものを、ZIP のまま返す。"""
-    response = client.get(
-        DOCUMENT_URL.format(doc_id=doc_id), params={"type": CSV_ZIP, "Subscription-Key": api_key}
-    )
+    url = DOCUMENT_URL.format(doc_id=doc_id)
+    params = {"type": CSV_ZIP, "Subscription-Key": api_key}
+    for _ in range(ATTEMPTS - 1):
+        try:
+            response = client.get(url, params=params)
+            break
+        except httpx.TransportError:
+            time.sleep(RETRY_WAIT_SECONDS)
+    else:
+        # 最後の1回は、切れたらそのまま止める
+        response = client.get(url, params=params)
     response.raise_for_status()
     # 書類取得 API はエラーでも HTTP では 200 で返る。成否は Content-Type で見分ける（3-3）
     if response.headers.get("Content-Type", "").startswith("application/octet-stream"):
