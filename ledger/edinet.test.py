@@ -151,3 +151,38 @@ def 書類が取れずJSONが返れば止める() -> None:
 
     with pytest.raises(EdinetError, match="404 Not Found"):
         fetch_document_csv_zip(client, "S100W7EN", "key")
+
+
+def _disconnecting_client(failures: int, calls: list[httpx.Request]) -> httpx.Client:
+    """初めの failures 回は応答を返さずに接続を切り、その後は ZIP を返す。"""
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if len(calls) <= failures:
+            raise httpx.RemoteProtocolError("Server disconnected without sending a response.")
+        return httpx.Response(
+            200, content=b"PK-zip", headers={"Content-Type": "application/octet-stream"}
+        )
+
+    return httpx.Client(transport=httpx.MockTransport(handle))
+
+
+def 接続が切れても待ってやり直し書類のZIPを返す(monkeypatch: pytest.MonkeyPatch) -> None:
+    waits: list[float] = []
+    monkeypatch.setattr("ledger.edinet.time.sleep", waits.append)
+    calls: list[httpx.Request] = []
+
+    assert fetch_document_csv_zip(_disconnecting_client(2, calls), "S100W7EN", "key") == b"PK-zip"
+    assert len(calls) == 3
+    assert waits == [60, 60]
+
+
+def 接続が切れ続ければ決まった回数で諦めて止める(monkeypatch: pytest.MonkeyPatch) -> None:
+    waits: list[float] = []
+    monkeypatch.setattr("ledger.edinet.time.sleep", waits.append)
+    calls: list[httpx.Request] = []
+
+    with pytest.raises(httpx.RemoteProtocolError):
+        fetch_document_csv_zip(_disconnecting_client(10, calls), "S100W7EN", "key")
+    assert len(calls) == 5
+    assert len(waits) == 4
