@@ -6,7 +6,7 @@
 
 ## 今の段階
 
-有報1年分で試し、拾える案件の数と、抜き出しの誤り率を確かめる。
+2016-10〜2025-09 の有報から買収案件を抜き出した。次は、同じ案件の重複をまとめ、抜き出しの誤り率を確かめる（#7）。
 
 ## 準備
 
@@ -23,6 +23,24 @@ uv run --env-file .env python -m ledger.document_lists 2024-10-01 2025-09-30
 期間の各日の書類一覧を `data/document_lists/YYYY-MM-DD.json` に保存し、月ごとの有報の件数を出す。呼ぶたびに1秒空ける。途中で止まっても、保存済みの日は取り直さない。当日の一覧はまだ増えるので、終わりの日は昨日以前にする。
 
 ## 注記から買収案件を抜き出す
+
+台帳は、Claude Code のサブエージェントに注記を読ませて作った。手元の LLM（qwen3:8b）での抜き出しも残してあるが、こちらは比べるためのもので、台帳には使っていない。
+
+### Claude Code のサブエージェントで抜き出す
+
+```bash
+uv run python -m ledger.claude_deals split 2023-10-01 2024-09-30 data/claude_deals/y2024
+```
+
+期間内に出た有報の、中身のある注記を30件ずつ `in/chunk_NNN.jsonl` に分ける。前に分けた入力がある所には分けない。各ファイルを1つのサブエージェントに渡し（2024-09 までは Sonnet、2024-10 からは Opus）、`ledger/claude_deals_instructions.md` の指示で `out/chunk_NNN.json` に案件を書かせる。
+
+```bash
+uv run python -m ledger.claude_deals check data/claude_deals/y2024
+```
+
+出力を入力の原文と照らし合わせ、種類ごとの案件数と、原文に載っていない項目がある取得を出す。入力が無いとき、出力の無い入力があるとき、注記の並びが入力と違う出力があるときは止まる。
+
+### 手元の LLM で抜き出す
 
 ```bash
 uv run python -m ledger.deals
