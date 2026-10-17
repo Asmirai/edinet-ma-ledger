@@ -140,7 +140,7 @@ def save_deals(client: httpx.Client, notes_dir: Path, deals_dir: Path, model: st
         saved: dict[str, Any] = {field: report[field] for field in KEPT_FIELDS}
         deals: list[dict[str, Any]] = []
         try:
-            for note in _notes_to_read(cast(list[dict[str, str]], report["notes"])):
+            for note in notes_to_read(cast(list[dict[str, str]], report["notes"])):
                 found = extract_deals(client, note["text"], model)
                 deals.extend(deal | {"element": note["element"]} for deal in found)
         except (json.JSONDecodeError, KeyError, httpx.HTTPError) as error:
@@ -150,7 +150,7 @@ def save_deals(client: httpx.Client, notes_dir: Path, deals_dir: Path, model: st
         deals_path.write_text(json.dumps(saved, ensure_ascii=False), encoding="utf-8")
 
 
-def _notes_to_read(notes: list[dict[str, str]]) -> list[dict[str, str]]:
+def notes_to_read(notes: list[dict[str, str]]) -> list[dict[str, str]]:
     substantive = [note for note in notes if is_substantive(note["text"])]
     consolidated = [note for note in substantive if "Consolidated" in note["element"]]
     chosen = consolidated or substantive
