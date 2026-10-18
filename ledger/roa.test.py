@@ -19,6 +19,7 @@ HEADER = [
 ]
 JGAAP_PROFIT = "jpcrp_cor:ProfitLossAttributableToOwnersOfParentSummaryOfBusinessResults"
 IFRS_PROFIT = "jpcrp_cor:ProfitLossAttributableToOwnersOfParentIFRSSummaryOfBusinessResults"
+IFRS_PLAIN_PROFIT = "jpcrp_cor:ProfitLossIFRSSummaryOfBusinessResults"
 IFRS_ASSETS = "jpcrp_cor:TotalAssetsIFRSSummaryOfBusinessResults"
 ASSETS = "jpcrp_cor:TotalAssetsSummaryOfBusinessResults"
 SINGLE_PROFIT = "jpcrp_cor:NetIncomeLossSummaryOfBusinessResults"
@@ -37,7 +38,7 @@ def _archive(rows: list[tuple[str, str, str]]) -> bytes:
     return buffer.getvalue()
 
 
-def 連結の5期分の純利益と総資産を読む() -> None:
+def 連結の5期分の純利益と総資産を基準と一緒に読む() -> None:
     rows = [
         (JGAAP_PROFIT, "CurrentYearDuration", "100"),
         (ASSETS, "CurrentYearInstant", "1000"),
@@ -47,13 +48,27 @@ def 連結の5期分の純利益と総資産を読む() -> None:
         (ASSETS, "CurrentYearInstant" + SINGLE, "50"),
     ]
 
-    assert read_summary(_archive(rows)) == {0: (100, 1000), 4: (40, 800)}
+    assert read_summary(_archive(rows)) == {0: (100, 1000, "日本基準"), 4: (40, 800, "日本基準")}
 
 
-def IFRSの要素も読む() -> None:
-    rows = [(IFRS_PROFIT, "Prior1YearDuration", "-30"), (IFRS_ASSETS, "Prior1YearInstant", "900")]
+def 同じ期に日本基準とIFRSがあればIFRSを読む() -> None:
+    rows = [
+        (JGAAP_PROFIT, "Prior1YearDuration", "20"),
+        (ASSETS, "Prior1YearInstant", "800"),
+        (IFRS_PROFIT, "Prior1YearDuration", "-30"),
+        (IFRS_ASSETS, "Prior1YearInstant", "900"),
+    ]
 
-    assert read_summary(_archive(rows)) == {1: (-30, 900)}
+    assert read_summary(_archive(rows)) == {1: (-30, 900, "IFRS")}
+
+
+def 親会社株主に帰属する利益が無ければ当期利益を読む() -> None:
+    rows = [
+        (IFRS_PLAIN_PROFIT, "CurrentYearDuration", "7"),
+        (IFRS_ASSETS, "CurrentYearInstant", "70"),
+    ]
+
+    assert read_summary(_archive(rows)) == {0: (7, 70, "IFRS")}
 
 
 def 連結が無ければ単体を読む() -> None:
@@ -62,7 +77,7 @@ def 連結が無ければ単体を読む() -> None:
         (ASSETS, "CurrentYearInstant" + SINGLE, "50"),
     ]
 
-    assert read_summary(_archive(rows)) == {0: (5, 50)}
+    assert read_summary(_archive(rows)) == {0: (5, 50, "単体")}
 
 
 def 純利益か総資産の欠けた期は読まない() -> None:
@@ -74,26 +89,40 @@ def 純利益か総資産の欠けた期は読まない() -> None:
         (ASSETS, "Prior2YearInstant", "800"),
     ]
 
-    assert read_summary(_archive(rows)) == {0: (100, 1000)}
+    assert read_summary(_archive(rows)) == {0: (100, 1000, "日本基準")}
 
 
 def 有報の決算日から各期の決算日を出し後の有報の値を使う() -> None:
-    older = (date(2024, 3, 31), {0: (10, 100), 1: (9, 90)})
-    newer = (date(2025, 3, 31), {0: (12, 120), 1: (11, 110)})
+    older = (date(2024, 3, 31), {0: (10, 100, "日本基準"), 1: (9, 90, "日本基準")})
+    newer = (date(2025, 3, 31), {0: (12, 120, "日本基準"), 1: (11, 110, "日本基準")})
 
     assert company_years([newer, older]) == {
-        date(2023, 3, 31): (9, 90),
-        date(2024, 3, 31): (11, 110),
-        date(2025, 3, 31): (12, 120),
+        date(2023, 3, 31): (9, 90, "日本基準"),
+        date(2024, 3, 31): (11, 110, "日本基準"),
+        date(2025, 3, 31): (12, 120, "日本基準"),
     }
 
 
 def うるう年の2月末決算も前の期の決算日を出せる() -> None:
-    assert company_years([(date(2024, 2, 29), {1: (1, 10)})]) == {date(2023, 2, 28): (1, 10)}
+    summary = {1: (1, 10, "日本基準")}
+
+    assert company_years([(date(2024, 2, 29), summary)]) == {date(2023, 2, 28): (1, 10, "日本基準")}
 
 
-def _years(roas: dict[int, float], assets: int = 1000) -> dict[date, tuple[int, int]]:
-    return {date(year, 3, 31): (round(roa * assets), assets) for year, roa in roas.items()}
+def 決算期を変えた会社は各有報の当期の値だけを使う() -> None:
+    march = (date(2019, 3, 31), {0: (10, 100, "日本基準"), 1: (9, 90, "日本基準")})
+    december = (date(2019, 12, 31), {0: (7, 110, "日本基準"), 1: (10, 100, "日本基準")})
+
+    assert company_years([march, december]) == {
+        date(2019, 3, 31): (10, 100, "日本基準"),
+        date(2019, 12, 31): (7, 110, "日本基準"),
+    }
+
+
+def _years(
+    roas: dict[int, float], assets: int = 1000, basis: str = "日本基準"
+) -> dict[date, tuple[int, int, str]]:
+    return {date(year, 3, 31): (round(roa * assets), assets, basis) for year, roa in roas.items()}
 
 
 def 買収後3期の平均から買収前の期を引く() -> None:
@@ -103,7 +132,7 @@ def 買収後3期の平均から買収前の期を引く() -> None:
 
 
 def 前後の期が欠ければ差を出さない() -> None:
-    assert delta_roa(_years({2019: 0.02, 2021: 0.03, 2022: 0.05}), 2020) is None
+    assert delta_roa(_years({2019: 0.02, 2021: 0.03, 2022: 0.05, 2024: 0.01}), 2020) is None
     assert delta_roa(_years({2021: 0.03, 2022: 0.05, 2023: 0.04}), 2020) is None
 
 
@@ -135,20 +164,35 @@ def 同業の差の中央値を引いて成否を付ける() -> None:
     assert row["unlabeled_reason"] is None
 
 
-def 買収後の期がそろわなければ理由を付けて空にする() -> None:
-    years_by_company = {"E1": _years({2020: 0.02, 2022: 0.05})}
-
-    [row] = label_acquisitions([_row()], years_by_company, {"E1": "情報・通信業"})
-
-    assert row["excess_delta_roa"] is None
-    assert row["success"] is None
-    assert row["unlabeled_reason"] == "前後の ROA がそろわない"
+def _reason(years: dict[date, tuple[int, int, str]], acquired: str = "2020-06-01") -> object:
+    rows = [_row(acquisition_date=acquired)]
+    return label_acquisitions(rows, {"E1": years}, {"E1": "情報・通信業"})[0]["unlabeled_reason"]
 
 
-def 有報の財務の値が無い会社は理由を付けて空にする() -> None:
-    [row] = label_acquisitions([_row()], {}, {})
+def 成否を付けられない行には理由を付ける() -> None:
+    assert _reason({}) == "財務の値が無い"
+    assert _reason(_years({2020: 0.02}), acquired="") == "企業結合日が無い"
+    assert _reason(_years({2020: 0.02, 2022: 0.05, 2023: 0.05})) == "買収後3期の有報がまだ無い"
+    assert _reason(_years({2020: 0.02, 2022: 0.05, 2024: 0.05})) == "前後の ROA が欠けている"
+    # 2024年に3月決算から12月決算へ変えた
+    changed = _years({2020: 0.02, 2021: 0.02, 2022: 0.05, 2023: 0.05}) | {
+        date(2024, 12, 31): (5, 100, "日本基準")
+    }
+    assert _reason(changed) == "決算期の変更"
+    mixed = _years({2020: 0.02}, basis="単体") | _years({2022: 0.05, 2023: 0.05, 2024: 0.05})
+    assert _reason(mixed) == "会計基準か連結・単体が変わった"
 
-    assert row["unlabeled_reason"] == "財務の値が無い"
+
+def 決算日が分かっていれば取得日の後の最初の決算日の年を基準にする() -> None:
+    years = {
+        date(2023, 2, 28): (1, 100, "日本基準"),
+        date(2024, 2, 29): (1, 100, "日本基準"),
+        date(2025, 2, 28): (1, 100, "日本基準"),
+    }
+
+    [row] = label_acquisitions([_row(acquisition_date="2024-02-29")], {"E1": years}, {})
+
+    assert row["base_year"] == 2024
 
 
 def 親会社と子会社が同じ案件を載せたら総資産の小さいほうを主にする() -> None:
