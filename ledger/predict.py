@@ -13,6 +13,7 @@ import math
 import re
 import unicodedata
 from collections import defaultdict
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,7 @@ NUMERIC = (
 )
 CATEGORICAL = ("industry", "acquiree_industry", "legal_form")
 TOP_SHARE = 0.1
+PRIOR_DAYS = 730
 # scikit-learn には型の情報が無いので、境目で Any として扱う
 sk_compose: Any = importlib.import_module("sklearn.compose")
 sk_ensemble: Any = importlib.import_module("sklearn.ensemble")
@@ -60,9 +62,14 @@ def legal_form_kind(text: str) -> str:
 
 
 def voting_number(text: str) -> float | None:
-    """議決権比率の数字を読む。取得前と取得後が書かれていれば、最後（取得後）の数字。"""
-    numbers = re.findall(r"\d+(?:\.\d+)?", unicodedata.normalize("NFKC", text))
-    return float(numbers[-1]) if numbers else None
+    """議決権比率の数字を読む。「取得後」があればその後ろの最初の数字、無ければ最初の数字。
+
+    後ろに書き添えた間接保有の比率や、2社目の比率は読まない。
+    """
+    normalized = unicodedata.normalize("NFKC", text)
+    after = normalized.split("取得後", 1)[-1]
+    numbers = re.findall(r"\d+(?:\.\d+)?", after)
+    return float(numbers[0]) if numbers else None
 
 
 def model_rows(
@@ -70,12 +77,15 @@ def model_rows(
 ) -> list[dict[str, Any]]:
     """台帳の行（CSV の文字列）から、買収前の ROA でそろえた成否が付いた主の行の列を作る。
 
-    それまでの買収の件数は、成否を付けたかどうかにかかわらず、その会社の台帳の行で企業結合日が前のものを数える。
+    直前2年の買収の件数は、成否を付けたかどうかにかかわらず、その会社の台帳の行で企業結合日が
+    2年前からその前日までのものを数える。台帳の始まりから2年たっていない案件は、件数がそろわないので None。
+    全期間の件数にすると、台帳が長くなる後の年ほど増え、年の代わりになってしまう。
     """
-    dates: defaultdict[str, list[str]] = defaultdict(list)
+    dates: defaultdict[str, list[date]] = defaultdict(list)
     for row in rows:
         if row["acquisition_date"]:
-            dates[row["edinetCode"]].append(row["acquisition_date"])
+            dates[row["edinetCode"]].append(date.fromisoformat(row["acquisition_date"]))
+    ledger_start = min(d for found in dates.values() for d in found)
     built: list[dict[str, Any]] = []
     for row in rows:
         if row["primary"] != "True" or not row["success"] or not row["matched_excess_delta_roa"]:
@@ -92,7 +102,11 @@ def model_rows(
                 "log_size_ratio": math.log(size) if size is not None and size > 0 else None,
                 "excess_roa_before": features["excess_roa_before"],
                 "voting_ratio": voting_number(row["voting_ratio"]),
-                "prior_deals": sum(d < row["acquisition_date"] for d in dates[row["edinetCode"]]),
+                "prior_deals": _recent_deals(
+                    dates[row["edinetCode"]],
+                    date.fromisoformat(row["acquisition_date"]),
+                    ledger_start,
+                ),
                 "industry": row["industry"],
                 "acquiree_industry": acquiree_industry,
                 "legal_form": legal_form_kind(row["legal_form"]),
@@ -100,6 +114,13 @@ def model_rows(
             }
         )
     return built
+
+
+def _recent_deals(dates: list[date], acquired_on: date, ledger_start: date) -> int | None:
+    window_start = acquired_on - timedelta(days=PRIOR_DAYS)
+    if window_start < ledger_start:
+        return None
+    return sum(window_start <= d < acquired_on for d in dates)
 
 
 def split_by_year(
