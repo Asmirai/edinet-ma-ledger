@@ -59,18 +59,16 @@ def split_notes(
     return len(doc_ids), len(items)
 
 
-def check_outputs(year_dir: Path) -> tuple[Counter[str], list[tuple[str, str, list[str]]]]:
-    """サブエージェントの出力を入力の原文と照らし合わせる。
+def read_chunks(year_dir: Path) -> list[tuple[dict[str, str], dict[str, Any]]]:
+    """入力の注記と、サブエージェントの出力の組を、入力の順に返す。
 
-    返すのは種類ごとの案件数と、取得のうち原文に載っていない項目があるものの（会社名、案件名、項目）。
-    入力が1つも無ければ止める（ディレクトリの指定違いを、0 件として通さないため）。
-    原文には「&amp;」のような文字参照が残っている。戻す前と戻した後のどちらかに載っていれば、載っているとみなす。
+    入力が1つも無いとき、出力の無い入力があるとき、出力の注記の並びが入力と違うときは止める。
+    ディレクトリの指定違いや数え違いを、件数のずれとして黙って通さないため。
     """
-    kinds: Counter[str] = Counter()
-    mismatches: list[tuple[str, str, list[str]]] = []
     in_paths = sorted((year_dir / "in").glob("chunk_*.jsonl"))
     if not in_paths:
         raise FileNotFoundError(f"{year_dir / 'in'} に入力が無い")
+    pairs: list[tuple[dict[str, str], dict[str, Any]]] = []
     for in_path in in_paths:
         out_path = year_dir / "out" / f"{in_path.stem}.json"
         inputs = [
@@ -82,15 +80,27 @@ def check_outputs(year_dir: Path) -> tuple[Counter[str], list[tuple[str, str, li
         output_order = [(r["docID"], r["element"]) for r in results]
         if output_order != [(i["docID"], i["element"]) for i in inputs]:
             raise ValueError(f"{out_path.name} の注記の並びが入力と違う")
-        for source, result in zip(inputs, results):
-            for deal in cast(list[dict[str, Any]], result["deals"]):
-                kinds[deal["kind"]] += 1
-                if deal["kind"] != ACQUISITION:
-                    continue
-                unescaped = unverified_fields(deal, html.unescape(source["text"]))
-                missing = [f for f in unverified_fields(deal, source["text"]) if f in unescaped]
-                if missing:
-                    mismatches.append((source["filerName"], deal["acquiree_name"], missing))
+        pairs.extend(zip(inputs, results))
+    return pairs
+
+
+def check_outputs(year_dir: Path) -> tuple[Counter[str], list[tuple[str, str, list[str]]]]:
+    """サブエージェントの出力を入力の原文と照らし合わせる。
+
+    返すのは種類ごとの案件数と、取得のうち原文に載っていない項目があるものの（会社名、案件名、項目）。
+    原文には「&amp;」のような文字参照が残っている。戻す前と戻した後のどちらかに載っていれば、載っているとみなす。
+    """
+    kinds: Counter[str] = Counter()
+    mismatches: list[tuple[str, str, list[str]]] = []
+    for source, result in read_chunks(year_dir):
+        for deal in cast(list[dict[str, Any]], result["deals"]):
+            kinds[deal["kind"]] += 1
+            if deal["kind"] != ACQUISITION:
+                continue
+            unescaped = unverified_fields(deal, html.unescape(source["text"]))
+            missing = [f for f in unverified_fields(deal, source["text"]) if f in unescaped]
+            if missing:
+                mismatches.append((source["filerName"], deal["acquiree_name"], missing))
     return kinds, mismatches
 
 
