@@ -124,8 +124,8 @@ def company_years(
 
 def roa_change(
     years: dict[date, tuple[int, int, str]], base_year: int
-) -> tuple[float, float] | str:
-    """買収前の期の ROA と ΔROA（買収後3期の ROA の平均 − 買収前の期の ROA）。
+) -> tuple[float, float, tuple[float, float, float]] | str:
+    """買収前の期の ROA、ΔROA（買収後3期の ROA の平均 − 買収前の期の ROA）、1期ごとの差。
 
     そろわなければ理由を返す。期は決算日の年で数える。
     """
@@ -145,7 +145,8 @@ def roa_change(
     if any(years[end][1] <= 0 for end in window):
         return "前後の ROA が欠けている"
     roas = [years[end][0] / years[end][1] for end in sorted(window)]
-    return roas[0], statistics.mean(roas[1:]) - roas[0]
+    yearly = (roas[1] - roas[0], roas[2] - roas[0], roas[3] - roas[0])
+    return roas[0], statistics.mean(roas[1:]) - roas[0], yearly
 
 
 def label_acquisitions(
@@ -197,6 +198,9 @@ def label_acquisitions(
                 "roa_before",
                 "excess_roa_before",
                 "delta_roa",
+                "delta_roa_1",
+                "delta_roa_2",
+                "delta_roa_3",
                 "excess_delta_roa",
                 "matched_excess_delta_roa",
                 "success",
@@ -240,6 +244,8 @@ def label_acquisitions(
                 result["unlabeled_reason"] = "業種が無い"
             else:
                 result["delta_roa"] = window[1]
+                for offset, yearly in enumerate(window[2], start=1):
+                    result[f"delta_roa_{offset}"] = yearly
                 result["excess_delta_roa"] = result["delta_roa"] - median
                 result["success"] = result["excess_delta_roa"] > 0
                 result["unlabeled_reason"] = None

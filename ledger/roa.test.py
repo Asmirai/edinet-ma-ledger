@@ -128,7 +128,12 @@ def _years(
 def 買収後3期の平均から買収前の期を引く() -> None:
     years = _years({2019: 0.02, 2021: 0.03, 2022: 0.05, 2023: 0.04})
 
-    assert roa_change(years, 2020) == pytest.approx((0.02, 0.02))
+    change = roa_change(years, 2020)
+
+    assert not isinstance(change, str)
+    before, delta, yearly = change
+    assert (before, delta) == pytest.approx((0.02, 0.02))
+    assert yearly == pytest.approx((0.01, 0.03, 0.02))
 
 
 def 前後の期が欠ければ差を出さない() -> None:
@@ -161,6 +166,7 @@ def 同業の差の中央値を引いて成否を付ける() -> None:
 
     assert row["base_year"] == 2021
     assert row["delta_roa"] == pytest.approx(0.03)
+    assert [row[f"delta_roa_{k}"] for k in (1, 2, 3)] == pytest.approx([0.03, 0.03, 0.03])
     assert row["excess_delta_roa"] == pytest.approx(0.02)
     assert row["success"] is True
     assert row["size_ratio"] == pytest.approx(0.1)

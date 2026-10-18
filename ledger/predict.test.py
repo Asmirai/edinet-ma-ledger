@@ -4,6 +4,8 @@ from typing import Any
 import pytest
 
 from ledger.predict import (
+    CATEGORICAL,
+    NUMERIC,
     evaluate,
     fit_models,
     legal_form_kind,
@@ -125,7 +127,7 @@ def 三つのモデルを学習して確かめの物差しを並べる() -> None
             }
         )
 
-    results = fit_models(rows, 2019)
+    results = fit_models(rows, 2019, NUMERIC, CATEGORICAL)
 
     assert list(results) == ["全件の成功率", "ロジスティック回帰", "勾配ブースティング"]
     assert results["全件の成功率"]["auc"] == pytest.approx(0.5)

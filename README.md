@@ -100,6 +100,19 @@ uv run python -m ledger.predict
 
 買収の時点で分かる情報（同業か、のれんの割合、買収の大きさ、買収前の ROA、業種、法的形式、議決権比率、それまでの買収の件数）で、買収前の ROA でそろえた成否を当てる。基準の年が2019年までで学習し、2020年からで確かめる。全件の成功率・ロジスティック回帰・勾配ブースティングの AUC などを `data/predict.md` に書く。
 
+### 買収を判断するときに見る要因を調べる
+
+```bash
+uv run python -m ledger.impairments split data/impairments   # 減損の候補を拾う（ledger/impairment_instructions.md で確かめさせる）
+uv run python -m ledger.impairments label data/impairments
+uv run python -m ledger.purposes split data/purposes         # 買収の目的と事業の近さ（ledger/purpose_instructions.md）
+uv run python -m ledger.factors
+```
+
+物差しは2つ。その買収で生じたのれんを買収後3期のうちに減損したか（`data/impairments.csv`）と、取得原価が買い手の総資産の10%以上の大きい買収で、買収前の ROA が近い会社より ROA が伸びたか。小さい買収は買い手全体の ROA をほとんど動かさないので、ROA では見ない。
+
+`factors` は、買収の目的・事業の近さ・対価の種類・のれんの割合・買い手の財務（買収直前の有報から読む）などの要因ごとに、減損した割合と ROA が伸びた割合を出す。ほかの要因と年をそろえたオッズ比と、列を足す前と後のモデルの当たり具合も `data/factors.md` に書く。
+
 ### 手元の LLM で抜き出す
 
 ```bash
