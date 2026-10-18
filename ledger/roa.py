@@ -122,10 +122,13 @@ def company_years(
     return years
 
 
-def _window(
+def roa_change(
     years: dict[date, tuple[int, int, str]], base_year: int
-) -> tuple[float, list[float]] | str:
-    """買収前の期の ROA と、買収後3期の ROA。そろわなければ理由を返す。期は決算日の年で数える。"""
+) -> tuple[float, float] | str:
+    """買収前の期の ROA と ΔROA（買収後3期の ROA の平均 − 買収前の期の ROA）。
+
+    そろわなければ理由を返す。期は決算日の年で数える。
+    """
     wanted = range(base_year - 1, base_year + YEARS_AFTER + 1)
     if base_year + YEARS_AFTER > max(end.year for end in years):
         return "買収後3期の有報がまだ無い"
@@ -142,16 +145,7 @@ def _window(
     if any(years[end][1] <= 0 for end in window):
         return "前後の ROA が欠けている"
     roas = [years[end][0] / years[end][1] for end in sorted(window)]
-    return roas[0], roas[1:]
-
-
-def delta_roa(years: dict[date, tuple[int, int, str]], base_year: int) -> float | None:
-    """買収後3期の ROA の平均から、買収前の期の ROA を引く。そろわなければ None。"""
-    window = _window(years, base_year)
-    if isinstance(window, str):
-        return None
-    before, after = window
-    return statistics.mean(after) - before
+    return roas[0], statistics.mean(roas[1:]) - roas[0]
 
 
 def label_acquisitions(
@@ -160,6 +154,9 @@ def label_acquisitions(
     industries: dict[str, str],
 ) -> list[dict[str, Any]]:
     """台帳の行に、基準の期、ΔROA、超過 ΔROA、成否、買収の大きさ、主の行かどうか、空にした理由を付ける。
+
+    あわせて、買収前の ROA、その同業の中央値との差、買収前の ROA が同じ帯（基準の年の全社の10分位）の
+    ΔROA の中央値との差（matched_excess_delta_roa）を付ける。
 
     親会社と子会社が同じ案件を載せたときは、買収前の総資産が小さいほう（直接買った会社に近いほう）を主の行にする。
     """
@@ -171,10 +168,10 @@ def label_acquisitions(
         if code not in industries:
             continue
         for base_year in {end.year + 1 for end in years}:  # 買収前の期が base_year − 1
-            window = _window(years, base_year)
+            window = roa_change(years, base_year)
             if isinstance(window, str):
                 continue
-            delta = statistics.mean(window[1]) - window[0]
+            delta = window[1]
             deltas[(industries[code], base_year)].append(delta)
             befores[(industries[code], base_year)].append(window[0])
             pairs[base_year].append((window[0], delta))
@@ -235,14 +232,14 @@ def label_acquisitions(
                 result["assets_before"] = before[1]
                 if row["consideration_yen"] is not None and before[1] > 0:
                     result["size_ratio"] = int(row["consideration_yen"]) / before[1]
-            window = _window(years, base_year)
+            window = roa_change(years, base_year)
             median = medians.get((result["industry"] or "", base_year))
             if isinstance(window, str):
                 result["unlabeled_reason"] = window
             elif median is None:
                 result["unlabeled_reason"] = "業種が無い"
             else:
-                result["delta_roa"] = statistics.mean(window[1]) - window[0]
+                result["delta_roa"] = window[1]
                 result["excess_delta_roa"] = result["delta_roa"] - median
                 result["success"] = result["excess_delta_roa"] > 0
                 result["unlabeled_reason"] = None
