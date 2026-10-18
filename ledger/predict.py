@@ -102,7 +102,7 @@ def model_rows(
                 "log_size_ratio": math.log(size) if size is not None and size > 0 else None,
                 "excess_roa_before": features["excess_roa_before"],
                 "voting_ratio": voting_number(row["voting_ratio"]),
-                "prior_deals": _recent_deals(
+                "prior_deals": recent_deals(
                     dates[row["edinetCode"]],
                     date.fromisoformat(row["acquisition_date"]),
                     ledger_start,
@@ -116,7 +116,7 @@ def model_rows(
     return built
 
 
-def _recent_deals(dates: list[date], acquired_on: date, ledger_start: date) -> int | None:
+def recent_deals(dates: list[date], acquired_on: date, ledger_start: date) -> int | None:
     window_start = acquired_on - timedelta(days=PRIOR_DAYS)
     if window_start < ledger_start:
         return None
@@ -150,16 +150,26 @@ def evaluate(truth: list[bool], probabilities: list[float]) -> dict[str, float]:
     }
 
 
-def _frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
+def _frame(
+    rows: list[dict[str, Any]], numeric: tuple[str, ...], categorical: tuple[str, ...]
+) -> pd.DataFrame:
     columns: dict[str, list[Any]] = {
-        name: [math.nan if r[name] is None else float(r[name]) for r in rows] for name in NUMERIC
+        name: [math.nan if r[name] is None else float(r[name]) for r in rows] for name in numeric
     }
-    columns |= {name: [r[name] or "不明" for r in rows] for name in CATEGORICAL}
+    columns |= {name: [r[name] or "不明" for r in rows] for name in categorical}
     return pd.DataFrame(columns)
 
 
-def fit_models(rows: list[dict[str, Any]], last_train_year: int) -> dict[str, dict[str, float]]:
-    """全件の成功率・ロジスティック回帰・勾配ブースティングを学習し、確かめの案件での物差しを返す。"""
+def fit_models(
+    rows: list[dict[str, Any]],
+    last_train_year: int,
+    numeric: tuple[str, ...] = NUMERIC,
+    categorical: tuple[str, ...] = CATEGORICAL,
+) -> dict[str, dict[str, float]]:
+    """全件の成功率・ロジスティック回帰・勾配ブースティングを学習し、確かめの案件での物差しを返す。
+
+    当てるものは各行の target。使う列は numeric（数値）と categorical（種類）で選ぶ。
+    """
     train, test = split_by_year(rows, last_train_year)
     train_y = [bool(r["target"]) for r in train]
     test_y = [bool(r["target"]) for r in test]
@@ -173,9 +183,9 @@ def fit_models(rows: list[dict[str, Any]], last_train_year: int) -> dict[str, di
                         sk_impute.SimpleImputer(strategy="median", add_indicator=True),
                         sk_preprocessing.StandardScaler(),
                     ),
-                    list(NUMERIC),
+                    list(numeric),
                 ),
-                ("categorical", categories, list(CATEGORICAL)),
+                ("categorical", categories, list(categorical)),
             ]
         ),
         sk_linear.LogisticRegression(max_iter=1000),
@@ -183,11 +193,11 @@ def fit_models(rows: list[dict[str, Any]], last_train_year: int) -> dict[str, di
     boosting = sk_pipeline.make_pipeline(
         sk_compose.ColumnTransformer(
             [
-                ("numeric", "passthrough", list(NUMERIC)),
+                ("numeric", "passthrough", list(numeric)),
                 (
                     "categorical",
                     sk_preprocessing.OneHotEncoder(handle_unknown="ignore", sparse_output=False),
-                    list(CATEGORICAL),
+                    list(categorical),
                 ),
             ]
         ),
@@ -198,8 +208,10 @@ def fit_models(rows: list[dict[str, Any]], last_train_year: int) -> dict[str, di
     )
     results = {"全件の成功率": evaluate(test_y, [sum(train_y) / len(train_y)] * len(test_y))}
     for name, model in (("ロジスティック回帰", logistic), ("勾配ブースティング", boosting)):
-        model.fit(_frame(train), train_y)
-        probabilities = [float(p) for p in model.predict_proba(_frame(test))[:, 1]]
+        model.fit(_frame(train, numeric, categorical), train_y)
+        probabilities = [
+            float(p) for p in model.predict_proba(_frame(test, numeric, categorical))[:, 1]
+        ]
         results[name] = evaluate(test_y, probabilities)
     return results
 

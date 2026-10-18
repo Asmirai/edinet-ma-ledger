@@ -64,10 +64,10 @@ def deal_features(row: dict[str, str], acquiree_industry: str | None) -> dict[st
         "edinetCode": row["edinetCode"],
         "industry": row["industry"],
         "base_year": int(row["base_year"]),
-        "success": row["success"] == "True",
+        "success": None if not row["success"] else row["success"] == "True",
         "matched_success": None if matched is None else matched > 0,
-        "delta_roa": float(row["delta_roa"]),
-        "excess_delta_roa": float(row["excess_delta_roa"]),
+        "delta_roa": _number(row["delta_roa"]),
+        "excess_delta_roa": _number(row["excess_delta_roa"]),
         "matched_excess_delta_roa": matched,
         "excess_roa_before": _number(row["excess_roa_before"]),
         "size_ratio": _number(row["size_ratio"]),
@@ -86,22 +86,26 @@ def quartiles(deals: list[dict[str, Any]], key: str) -> dict[str, list[dict[str,
     }
 
 
-def _share(key: str) -> Callable[[list[dict[str, Any]]], float]:
-    def share(deals: list[dict[str, Any]]) -> float:
+def share(key: str) -> Callable[[list[dict[str, Any]]], float]:
+    """key が真の案件の割合を出す関数。None の案件は数えない。"""
+
+    def rate(deals: list[dict[str, Any]]) -> float:
         known = [d[key] for d in deals if d[key] is not None]
         return sum(known) / len(known)
 
-    return share
+    return rate
 
 
-def _median(key: str) -> Callable[[list[dict[str, Any]]], float]:
+def median_of(key: str) -> Callable[[list[dict[str, Any]]], float]:
+    """key の中央値を出す関数。None の案件は数えない。"""
+
     def median(deals: list[dict[str, Any]]) -> float:
         return statistics.median(d[key] for d in deals if d[key] is not None)
 
     return median
 
 
-def _bootstrap(
+def bootstrap(
     deals: list[dict[str, Any]],
     stats: dict[str, Callable[[list[dict[str, Any]]], float]],
     rng: random.Random,
@@ -127,10 +131,10 @@ def _bootstrap(
 
 
 GROUP_STATS = {
-    "success_rate": _share("success"),
-    "matched_success_rate": _share("matched_success"),
-    "median_excess": _median("excess_delta_roa"),
-    "median_matched": _median("matched_excess_delta_roa"),
+    "success_rate": share("success"),
+    "matched_success_rate": share("matched_success"),
+    "median_excess": median_of("excess_delta_roa"),
+    "median_matched": median_of("matched_excess_delta_roa"),
 }
 
 
@@ -142,7 +146,7 @@ def summarize(groups: dict[str, list[dict[str, Any]]], seed: int) -> list[dict[s
     rng = random.Random(seed)
     summaries: list[dict[str, Any]] = []
     for name, deals in groups.items():
-        values = _bootstrap(deals, GROUP_STATS, rng)
+        values = bootstrap(deals, GROUP_STATS, rng)
         summaries.append(
             {"group": name, "n": len(deals)}
             | values
@@ -305,7 +309,7 @@ def build_report(deals: list[dict[str, Any]]) -> str:
         ("買収前の ROA が同じ帯（10分位）の全社の中央値", "matched_excess_delta_roa"),
     ):
         rows = [d | {"value": d[key], "declined": d[key] < 0} for d in deals if d[key] is not None]
-        v = _bootstrap(rows, {"median": _median("value"), "declined": _share("declined")}, rng)
+        v = bootstrap(rows, {"median": median_of("value"), "declined": share("declined")}, rng)
         lines.append(
             f"| {label} | {_pt(v['median'])} | {_pt(v['median_low'])}〜{_pt(v['median_high'])} "
             f"| {_pct(v['declined'])} | {_pct(v['declined_low'])}〜{_pct(v['declined_high'])} |"
