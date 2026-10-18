@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from ledger.factors import BIG_DEAL, adjusted_effects, deal_table, factor_summary
+from ledger.factors import BIG_DEAL, adjusted_effects, deal_table, factor_summary, risk_count
 
 
 def _row(deal_id: str, **changes: str) -> dict[str, str]:
@@ -42,7 +42,14 @@ def 案件ごとに列と2つの物差しをまとめる() -> None:
         "1-E1": {"sales_growth": 0.1, "equity_ratio": 0.5, "cash_ratio": 0.2, "ocf_ratio": 0.05}
     }
 
-    deals = deal_table(rows, {"1-E1": "卸売業"}, purposes, {"1-E1": True, "2-E1": False}, profiles)
+    deals = deal_table(
+        rows,
+        {"1-E1": "卸売業"},
+        purposes,
+        {"1-E1": True, "2-E1": False},
+        profiles,
+        {"1-E1": "IFRS"},
+    )
 
     assert [d["key"] for d in deals] == ["1-E1", "2-E1"]
     first, second = deals
@@ -51,6 +58,8 @@ def 案件ごとに列と2つの物差しをまとめる() -> None:
     assert first["purpose"] == "同じ事業の拡大"
     assert first["consideration"] == "現金"
     assert first["equity_ratio"] == 0.5
+    assert first["basis"] == "IFRS"
+    assert first["risk_count"] == 1
     assert second["roa_success"] is None
     assert second["purpose"] is None
     assert second["equity_ratio"] is None
@@ -132,3 +141,26 @@ def ほかの要因をそろえても残る差を回帰で出す() -> None:
     far = next(e for e in result["effects"] if e["term"] == "relatedness：遠い事業")
     assert far["odds_ratio"] > 3
     assert far["p"] < 0.001
+
+
+def 危険信号の数を数える() -> None:
+    deal: dict[str, Any] = {
+        "goodwill_ratio": 0.9,
+        "relatedness": "遠い事業",
+        "equity_ratio": 0.3,
+        "size_ratio": 0.06,
+    }
+
+    assert risk_count(deal) == 3
+    assert risk_count(deal | {"goodwill_ratio": 0.5, "relatedness": "同じ事業"}) == 1
+    assert risk_count(deal | {"equity_ratio": None}) is None
+
+
+def 危険信号の数は値ごとの群に分ける() -> None:
+    deals: list[dict[str, Any]] = [
+        {"edinetCode": f"E{i}", "risk_count": i % 5, "impaired": i % 5 >= 2} for i in range(200)
+    ]
+
+    rows = factor_summary(deals, "risk_count", "impaired", seed=1)
+
+    assert [r["group"] for r in rows] == ["0個", "1個", "2個", "3個以上"]
