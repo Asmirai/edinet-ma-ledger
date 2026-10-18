@@ -61,6 +61,15 @@ uv run python -m ledger.acquisitions
 - 名前が無いもの、「当社」（逆取得）、「その他の企業結合」は除く
 - 期首に取得していたと仮定した売上高は、担当によって差額と全体の額に割れたので入れない
 
+### 誤り率を出す
+
+```bash
+uv run python -m ledger.review sample data/review
+uv run python -m ledger.review score data/review
+```
+
+`sample` は年ごとに20件の注記を無作為に選び、10件ずつ `in/chunk_NNN.jsonl` に分ける。取得の案件が無い注記も選ぶ（見落としも数えるため）。各ファイルを Opus のサブエージェントに渡し、`ledger/review_instructions.md` の指示で原文と見比べさせる。`score` は、見落とし、取得でないのに取得とした数、項目ごとの誤りを数える。
+
 ### 手元の LLM で抜き出す
 
 ```bash

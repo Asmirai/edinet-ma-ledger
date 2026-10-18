@@ -17,7 +17,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
-from ledger.claude_deals import read_chunks
+from ledger.claude_deals import read_chunks, year_dirs
 from ledger.deals import ACQUISITION, to_yen
 from ledger.notes import KEPT_FIELDS, NOTES_DIR
 
@@ -146,11 +146,8 @@ def _merge(records: list[dict[str, Any]]) -> dict[str, Any]:
 
 def load_records(claude_deals_dir: Path, notes_dir: Path) -> list[dict[str, Any]]:
     """各年の出力から取得の案件を読み、有報の会社の情報（EDINET コード・決算期など）を付ける。"""
-    year_dirs = sorted(
-        {path.parent.parent for path in claude_deals_dir.glob("**/in/chunk_*.jsonl")}
-    )
     records: list[dict[str, Any]] = []
-    for year_dir in year_dirs:
+    for year_dir in year_dirs(claude_deals_dir):
         for source, result in read_chunks(year_dir):
             notes_path = notes_dir / f"{source['docID']}.json"
             report = cast(dict[str, Any], json.loads(notes_path.read_text(encoding="utf-8")))
