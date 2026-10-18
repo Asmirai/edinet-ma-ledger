@@ -9,19 +9,21 @@
 （roa・industries・impairments・purposes を先に用意しておく）
 """
 
+import bisect
 import csv
 import importlib
 import json
 import math
 import random
-from collections import defaultdict
+import statistics
+from collections import Counter, defaultdict
 from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
 import pandas as pd
 
-from ledger.hypotheses import INDUSTRIES_DIR, bootstrap, deal_features, quartiles, share
+from ledger.hypotheses import INDUSTRIES_DIR, bootstrap, deal_features, share
 from ledger.impairments import IMPAIRMENTS_PATH
 from ledger.industries import read_industries
 from ledger.notes import DOCUMENTS_DIR, NOTES_DIR
@@ -44,6 +46,12 @@ BIG_DEAL = 0.1
 SEED = 20261019
 # 件数がこれより少ない群は、割合が揺れすぎるので表に出さない
 MIN_GROUP = 30
+# 値が小さな整数で、同じ値が多い列は、値ごとの群に分ける
+COUNTED = ("prior_deals",)
+# 回帰では、これより少ない群を「少数の群」にまとめる。表より少し下げ、大きい買収（約300件）の群も残す
+MIN_REGRESSION_GROUP = 20
+# 回帰でオッズ比の基準にする群。読み手が「ふつうの買収」と受け取るもの
+REFERENCES = {"purpose": "同じ事業の拡大", "relatedness": "同じ事業", "consideration": "現金"}
 PROFILE_FIELDS = ("sales_growth", "equity_ratio", "cash_ratio", "ocf_ratio")
 NEW_NUMERIC = (*NUMERIC, *PROFILE_FIELDS)
 NEW_CATEGORICAL = (*CATEGORICAL, "purpose", "relatedness", "consideration")
@@ -87,6 +95,8 @@ def deal_table(
                 "edinetCode": row["edinetCode"],
                 "base_year": features["base_year"],
                 "impaired": impairments.get(key),
+                "matched_success": features["matched_success"],
+                **{f"delta_roa_{k}": _number(row[f"delta_roa_{k}"]) for k in (1, 2, 3)},
                 "roa_success": features["matched_success"]
                 if size is not None and size >= BIG_DEAL
                 else None,
@@ -113,29 +123,48 @@ def deal_table(
     return deals
 
 
+def _number(text: str) -> float | None:
+    return float(text) if text else None
+
+
 def factor_summary(
     deals: list[dict[str, Any]], factor: str, outcome: str, seed: int
 ) -> list[dict[str, Any]]:
     """factor の群ごとに、outcome が真の割合と95%の幅を出す。
 
-    数値の列は値の小さい順に4つの群に分け、その順に並べる。種類の列は割合の高い順に並べる。
-    幅は会社を単位にしたブートストラップ。件数が30件に満たない群は出さない。
+    数値の列は、factor が分かる全案件（物差しが空の案件も含む）の四分位の境目で4つの群に分け、
+    境目を群の名前に入れる。物差しが違っても同じ境目になるので、表に並べても同じ群を指す。
+    買収の件数は0の案件が半分近くあり四分位で分けられないので、0件・1件・2件・3件以上に分ける。
+    種類の列は割合の高い順に並べる。幅は会社を単位にしたブートストラップ。件数が30件に満たない群は出さない。
     """
     known = [d for d in deals if d[outcome] is not None and d[factor] is not None]
-    numeric = all(
+    numeric = factor not in COUNTED and all(
         isinstance(d[factor], (int, float)) and not isinstance(d[factor], bool) for d in known
     )
+    grouped: dict[str, list[dict[str, Any]]] = {}
     if numeric:
-        groups = quartiles(known, factor)
-    else:
-        grouped: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
+        cuts = statistics.quantiles([d[factor] for d in deals if d[factor] is not None], n=4)
+        labels = [
+            f"第1四分位（〜{cuts[0]:.2f}）",
+            f"第2四分位（{cuts[0]:.2f}〜{cuts[1]:.2f}）",
+            f"第3四分位（{cuts[1]:.2f}〜{cuts[2]:.2f}）",
+            f"第4四分位（{cuts[2]:.2f}〜）",
+        ]
+        grouped = {label: [] for label in labels}
         for deal in known:
-            grouped[str(deal[factor])].append(deal)
-        groups = dict(grouped)
+            grouped[labels[bisect.bisect_right(cuts, deal[factor])]].append(deal)
+    elif factor in COUNTED:
+        grouped = {label: [] for label in ("0件", "1件", "2件", "3件以上")}
+        for deal in known:
+            grouped[f"{deal[factor]}件" if deal[factor] < 3 else "3件以上"].append(deal)
+    else:
+        for deal in known:
+            grouped.setdefault(str(deal[factor]), []).append(deal)
+    groups = grouped
     rng = random.Random(seed)
     rows: list[dict[str, Any]] = []
     for name, members in groups.items():
-        if len(members) < MIN_GROUP and not numeric:
+        if len(members) < MIN_GROUP and not numeric or not members:
             continue
         values = bootstrap(members, {"rate": share(outcome)}, rng)
         rows.append(
@@ -147,7 +176,7 @@ def factor_summary(
                 "high": values["rate_high"],
             }
         )
-    if not numeric:
+    if not numeric and factor not in COUNTED:
         rows.sort(key=lambda r: r["rate"], reverse=True)
     return rows
 
@@ -157,14 +186,23 @@ def adjusted_effects(
     outcome: str,
     numeric: tuple[str, ...],
     categorical: tuple[str, ...],
-) -> list[dict[str, Any]]:
-    """ほかの要因・基準の年・業種をそろえたとき、各要因が outcome の起こりやすさをどれだけ変えるか（ロジスティック回帰）。
+) -> dict[str, Any]:
+    """ほかの要因と基準の年をそろえたとき、各要因が outcome の起こりやすさをどれだけ変えるか（ロジスティック回帰）。
 
-    数値の列は標準化し、1標準偏差あたりのオッズ比にする。上下1%は端の値にそろえる。
-    種類の列は、いちばん件数の多い群を基準にしたオッズ比。標準誤差は会社ごとにまとめる。
+    返すのは、使った件数（n）、outcome が真の件数（positives）、要因ごとのオッズ比（effects）。
+    値のそろった案件だけを使う。数値の列は標準化し、1標準偏差あたりのオッズ比にする。上下1%は端の値にそろえる。
+    種類の列は、REFERENCES の群を基準にしたオッズ比。20件に満たない群は「少数の群」にまとめる。
+    業種はそろえない。業種ごとの件数が少なく、全部が成功や失敗になる業種があると、推定が収束しないため。
+    標準誤差は会社ごとにまとめる。推定が収束しなければ止める。
     """
     needed = (outcome, *numeric, *categorical)
     complete = [d for d in deals if all(d[k] is not None for k in needed)]
+    for name in categorical:
+        counts = Counter(str(d[name]) for d in complete)
+        complete = [
+            d | {name: str(d[name]) if counts[str(d[name])] >= MIN_REGRESSION_GROUP else "少数の群"}
+            for d in complete
+        ]
     frame = pd.DataFrame(
         {
             "outcome": [float(d[outcome]) for d in complete],
@@ -179,16 +217,18 @@ def adjusted_effects(
         low, high = frame[name].quantile([WINSOR, 1 - WINSOR])
         clipped = frame[name].clip(low, high)
         frame[name] = (clipped - clipped.mean()) / clipped.std()
-    references = {name: str(frame[name].mode()[0]) for name in categorical}
+    references = {name: REFERENCES[name] for name in categorical}
     terms = [*numeric] + [
         f"C({name}, Treatment(reference='{references[name]}'))" for name in categorical
     ]
-    formula = "outcome ~ " + " + ".join([*terms, "C(base_year)", "C(industry)"])
+    formula = "outcome ~ " + " + ".join([*terms, "C(base_year)"])
     fitted = smf.logit(formula, data=frame).fit(
         disp=0,
         cov_type="cluster",
         cov_kwds={"groups": frame["edinetCode"].astype("category").cat.codes},
     )
+    if not fitted.mle_retvals["converged"]:
+        raise RuntimeError(f"{outcome} のロジスティック回帰が収束しない")
     intervals = fitted.conf_int()
     effects: list[dict[str, Any]] = []
     for term in fitted.params.index:
@@ -209,7 +249,11 @@ def adjusted_effects(
                 "reference": ", ".join(f"{k}：{v}" for k, v in references.items()),
             }
         )
-    return effects
+    return {
+        "n": len(complete),
+        "positives": int(sum(bool(d[outcome]) for d in complete)),
+        "effects": effects,
+    }
 
 
 FACTORS = {
@@ -323,10 +367,12 @@ def main() -> None:
         ),
     )
     for outcome, label, subset, numeric, categorical in adjusted:
-        effects = adjusted_effects(subset, outcome, numeric, categorical)
+        result = adjusted_effects(subset, outcome, numeric, categorical)
+        effects = result["effects"]
         lines += [
-            f"## ほかの要因・年・業種をそろえても残る差：{label}",
+            f"## ほかの要因と年をそろえても残る差：{label}",
             "",
+            f"値のそろった {result['n']} 件（うち真が {result['positives']} 件）で推定。"
             f"基準：{effects[0]['reference'] if effects else ''}。オッズ比が1より大きいほど起こりやすい",
             "",
             "| 要因 | オッズ比 | 95%の幅 | p 値 |",
@@ -338,6 +384,36 @@ def main() -> None:
             )
         lines.append("")
     lines += [
+        "## 大きい買収の境目を変えたとき",
+        "",
+        "| 境目（取得原価 ÷ 総資産） | 件数 | ROA が伸びた割合 | AUC（ロジスティック回帰、列を足した後） |",
+        "|---|---|---|---|",
+    ]
+    for threshold in (0.05, 0.1, 0.2):
+        subset = [
+            d | {"target": d["matched_success"]}
+            for d in deals
+            if d["matched_success"] is not None and (d["size_ratio"] or 0) >= threshold
+        ]
+        models = fit_models(subset, LAST_TRAIN_YEAR, NEW_NUMERIC, NEW_CATEGORICAL)
+        rate = sum(d["target"] for d in subset) / len(subset)
+        lines.append(
+            f"| {threshold:.0%}以上 | {len(subset)} | {rate:.1%} | {models['ロジスティック回帰']['auc']:.3f} |"
+        )
+    lines += [
+        "",
+        "## 大きい買収で、買収後1期ごとの ROA の変化（買収前の期との差）",
+        "",
+        "| 期 | 中央値 | 下がった割合 |",
+        "|---|---|---|",
+    ]
+    for k in (1, 2, 3):
+        values = [d[f"delta_roa_{k}"] for d in big_deals if d[f"delta_roa_{k}"] is not None]
+        lines.append(
+            f"| {k}期後 | {statistics.median(values) * 100:+.2f}pt | {sum(v < 0 for v in values) / len(values):.1%} |"
+        )
+    lines += [
+        "",
         "## モデルの当たり具合（2019年までで学習し、2020年からで確かめる）",
         "",
         "| 物差し | 列 | モデル | AUC | 上位10%の割合 | 全体の割合 |",

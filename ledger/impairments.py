@@ -26,6 +26,7 @@ from typing import Any, cast
 from ledger.acquisitions import COMPANY_TYPES, FORMER_OR_CURRENT_NAME
 from ledger.chunks import read_outputs, write_chunks
 from ledger.notes import DOCUMENTS_DIR, NOTES_DIR, REPORT_CSV_PREFIX
+from ledger.predict import legal_form_kind
 from ledger.roa import LABELED_PATH
 
 IMPAIRMENTS_PATH = Path("data/impairments.csv")
@@ -103,16 +104,25 @@ def label_impairments(
     deals: list[dict[str, Any]],
     reports_by_company: dict[str, list[tuple[date, str]]],
     confirmed: dict[str, bool],
-) -> dict[str, bool | None]:
-    """案件ごとに、のれんを減損したか。3期後の有報がまだ無い案件は None。
+) -> dict[str, tuple[bool | None, str | None]]:
+    """案件ごとに、（のれんを減損したか、分からない理由）。分からない案件は （None, 理由）。
 
-    候補に拾えなかった案件は、減損していないとみなす。
+    候補に拾えなかった案件は、減損していないとみなす。ただし次は拾えたかどうかが当てにならないので None にする。
+    - 3期後の有報が無い（まだ出ていない、または上場廃止などで出なくなった）
+    - 事業譲受：相手の名前に売り手の会社名が入り、減損の注記は事業の名前で書かれるので、名前で探しても当たらない
+    - 会社の種類を除いた名前が短すぎて、探していない
     """
-    labels: dict[str, bool | None] = {}
+    labels: dict[str, tuple[bool | None, str | None]] = {}
     for deal in deals:
         years = {end.year for end, _ in reports_by_company.get(deal["edinetCode"], [])}
-        covered = int(deal["base_year"]) + YEARS_AFTER in years
-        labels[deal["key"]] = confirmed.get(deal["key"], False) if covered else None
+        if int(deal["base_year"]) + YEARS_AFTER not in years:
+            labels[deal["key"]] = (None, "3期後の有報が無い")
+        elif legal_form_kind(deal["legal_form"]) == "事業譲受":
+            labels[deal["key"]] = (None, "事業譲受")
+        elif len(core_name(deal["acquiree_name"])) < MIN_NAME_LENGTH:
+            labels[deal["key"]] = (None, "名前が短すぎる")
+        else:
+            labels[deal["key"]] = (confirmed.get(deal["key"], False), None)
     return labels
 
 
@@ -152,14 +162,21 @@ def main() -> None:
     labels = label_impairments(deals, reports, read_impairments(out_dir))
     with IMPAIRMENTS_PATH.open("w", encoding="utf-8-sig", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["key", "impaired"])
-        writer.writerows((key, "" if value is None else value) for key, value in labels.items())
-    counts = {
-        "減損した": sum(v is True for v in labels.values()),
-        "減損していない": sum(v is False for v in labels.values()),
-        "3期後の有報がまだ無い": sum(v is None for v in labels.values()),
-    }
-    print(f"{counts}：{IMPAIRMENTS_PATH}")
+        writer.writerow(["key", "impaired", "reason"])
+        writer.writerows(
+            (key, "" if value is None else value, reason or "")
+            for key, (value, reason) in labels.items()
+        )
+    # 3期後の有報が無い案件を、まだ出ていないもの（データの最後の年より後）と、提出が止まったものに分ける
+    latest_year = max(end.year for found in reports.values() for end, _ in found)
+    base_years = {deal["key"]: int(deal["base_year"]) for deal in deals}
+    counts: defaultdict[str, int] = defaultdict(int)
+    for key, (value, reason) in labels.items():
+        if reason == "3期後の有報が無い":
+            not_yet = base_years[key] + YEARS_AFTER > latest_year
+            reason = "3期後の有報がまだ出ていない" if not_yet else "3期後の有報の提出が止まった"
+        counts[reason or ("減損した" if value else "減損していない")] += 1
+    print(f"{dict(counts)}：{IMPAIRMENTS_PATH}")
 
 
 if __name__ == "__main__":

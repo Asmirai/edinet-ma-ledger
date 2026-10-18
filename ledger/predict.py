@@ -163,8 +163,8 @@ def _frame(
 def fit_models(
     rows: list[dict[str, Any]],
     last_train_year: int,
-    numeric: tuple[str, ...] = NUMERIC,
-    categorical: tuple[str, ...] = CATEGORICAL,
+    numeric: tuple[str, ...],
+    categorical: tuple[str, ...],
 ) -> dict[str, dict[str, float]]:
     """全件の成功率・ロジスティック回帰・勾配ブースティングを学習し、確かめの案件での物差しを返す。
 
@@ -221,7 +221,7 @@ def main() -> None:
     with LABELED_PATH.open(encoding="utf-8-sig", newline="") as file:
         rows = model_rows(list(csv.DictReader(file)), industries)
     train, test = split_by_year(rows, LAST_TRAIN_YEAR)
-    results = fit_models(rows, LAST_TRAIN_YEAR)
+    results = fit_models(rows, LAST_TRAIN_YEAR, NUMERIC, CATEGORICAL)
     lines = [
         "# 買収の成否を当てられるか",
         "",
