@@ -1,0 +1,89 @@
+from typing import Any
+
+import pytest
+
+from ledger.factors import BIG_DEAL, deal_table, factor_summary
+
+
+def _row(deal_id: str, **changes: str) -> dict[str, str]:
+    row = {
+        "deal_id": deal_id,
+        "edinetCode": "E1",
+        "industry": "卸売業",
+        "acquisition_date": "2020-06-01",
+        "base_year": "2021",
+        "primary": "True",
+        "success": "True",
+        "delta_roa": "0.01",
+        "excess_delta_roa": "0.01",
+        "matched_excess_delta_roa": "0.02",
+        "excess_roa_before": "0.0",
+        "size_ratio": "0.2",
+        "consideration_yen": "1000",
+        "goodwill_yen": "300",
+        "legal_form": "現金を対価とする株式取得",
+        "voting_ratio": "100％",
+    }
+    return row | changes
+
+
+def 案件ごとに列と2つの物差しをまとめる() -> None:
+    rows = [
+        _row("1"),
+        _row("2", size_ratio="0.01", matched_excess_delta_roa="-0.01"),
+        _row("3", base_year="2024"),
+        _row("4", primary="False"),
+    ]
+    purposes = {"1-E1": ("同じ事業の拡大", "同じ事業")}
+    profiles: dict[str, dict[str, float | None]] = {
+        "1-E1": {"sales_growth": 0.1, "equity_ratio": 0.5, "cash_ratio": 0.2, "ocf_ratio": 0.05}
+    }
+
+    deals = deal_table(rows, {"1-E1": "卸売業"}, purposes, {"1-E1": True, "2-E1": False}, profiles)
+
+    assert [d["key"] for d in deals] == ["1-E1", "2-E1"]
+    first, second = deals
+    assert first["impaired"] is True
+    assert first["roa_success"] is True
+    assert first["purpose"] == "同じ事業の拡大"
+    assert first["consideration"] == "現金"
+    assert first["equity_ratio"] == 0.5
+    assert second["roa_success"] is None
+    assert second["purpose"] is None
+    assert second["equity_ratio"] is None
+
+
+def 大きい買収の境目は総資産の10パーセント() -> None:
+    assert BIG_DEAL == 0.1
+
+
+def _deal(group: str, outcome: bool | None, company: str = "E1") -> dict[str, Any]:
+    return {"edinetCode": company, "purpose": group, "impaired": outcome}
+
+
+def 種類ごとに割合と95パーセントの幅を出す() -> None:
+    deals = [_deal("同じ事業の拡大", i % 4 == 0, f"E{i}") for i in range(40)]
+    deals += [_deal("新しい事業への参入", i % 2 == 0, f"F{i}") for i in range(40)]
+    deals += [_deal("その他", None)]
+
+    rows = factor_summary(deals, "purpose", "impaired", seed=1)
+
+    assert [r["group"] for r in rows] == ["新しい事業への参入", "同じ事業の拡大"]
+    assert rows[0]["n"] == 40
+    assert rows[0]["rate"] == pytest.approx(0.5)
+    assert rows[1]["rate"] == pytest.approx(0.25)
+    assert rows[1]["low"] < 0.25 < rows[1]["high"]
+
+
+def 数値の列は4つの群に分ける() -> None:
+    deals = [{"edinetCode": f"E{i}", "equity_ratio": i / 10, "impaired": i >= 6} for i in range(8)]
+
+    rows = factor_summary(deals, "equity_ratio", "impaired", seed=1)
+
+    assert [r["group"] for r in rows] == [
+        "第1四分位（低い）",
+        "第2四分位",
+        "第3四分位",
+        "第4四分位（高い）",
+    ]
+    assert [r["rate"] for r in rows] == [0.0, 0.0, 0.0, 1.0]
