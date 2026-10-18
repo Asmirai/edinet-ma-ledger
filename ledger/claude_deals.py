@@ -59,6 +59,11 @@ def split_notes(
     return len(doc_ids), len(items)
 
 
+def year_dirs(claude_deals_dir: Path) -> list[Path]:
+    """入力の chunk を持つディレクトリ（年ごと）を並べる。"""
+    return sorted({path.parent.parent for path in claude_deals_dir.glob("**/in/chunk_*.jsonl")})
+
+
 def read_chunks(year_dir: Path) -> list[tuple[dict[str, str], dict[str, Any]]]:
     """入力の注記と、サブエージェントの出力の組を、入力の順に返す。
 
