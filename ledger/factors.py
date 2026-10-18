@@ -10,6 +10,7 @@
 """
 
 import csv
+import importlib
 import json
 import math
 import random
@@ -17,6 +18,8 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 from typing import Any, cast
+
+import pandas as pd
 
 from ledger.hypotheses import INDUSTRIES_DIR, bootstrap, deal_features, quartiles, share
 from ledger.impairments import IMPAIRMENTS_PATH
@@ -45,6 +48,9 @@ PROFILE_FIELDS = ("sales_growth", "equity_ratio", "cash_ratio", "ocf_ratio")
 NEW_NUMERIC = (*NUMERIC, *PROFILE_FIELDS)
 NEW_CATEGORICAL = (*CATEGORICAL, "purpose", "relatedness", "consideration")
 LAST_TRAIN_YEAR = 2019
+WINSOR = 0.01
+# statsmodels には型の情報が無いので、境目で Any として扱う
+smf: Any = importlib.import_module("statsmodels.formula.api")
 
 
 def deal_table(
@@ -146,6 +152,66 @@ def factor_summary(
     return rows
 
 
+def adjusted_effects(
+    deals: list[dict[str, Any]],
+    outcome: str,
+    numeric: tuple[str, ...],
+    categorical: tuple[str, ...],
+) -> list[dict[str, Any]]:
+    """ほかの要因・基準の年・業種をそろえたとき、各要因が outcome の起こりやすさをどれだけ変えるか（ロジスティック回帰）。
+
+    数値の列は標準化し、1標準偏差あたりのオッズ比にする。上下1%は端の値にそろえる。
+    種類の列は、いちばん件数の多い群を基準にしたオッズ比。標準誤差は会社ごとにまとめる。
+    """
+    needed = (outcome, *numeric, *categorical)
+    complete = [d for d in deals if all(d[k] is not None for k in needed)]
+    frame = pd.DataFrame(
+        {
+            "outcome": [float(d[outcome]) for d in complete],
+            "base_year": [d["base_year"] for d in complete],
+            "industry": [d["industry"] for d in complete],
+            "edinetCode": [d["edinetCode"] for d in complete],
+        }
+        | {name: [float(d[name]) for d in complete] for name in numeric}
+        | {name: [str(d[name]) for d in complete] for name in categorical}
+    )
+    for name in numeric:
+        low, high = frame[name].quantile([WINSOR, 1 - WINSOR])
+        clipped = frame[name].clip(low, high)
+        frame[name] = (clipped - clipped.mean()) / clipped.std()
+    references = {name: str(frame[name].mode()[0]) for name in categorical}
+    terms = [*numeric] + [
+        f"C({name}, Treatment(reference='{references[name]}'))" for name in categorical
+    ]
+    formula = "outcome ~ " + " + ".join([*terms, "C(base_year)", "C(industry)"])
+    fitted = smf.logit(formula, data=frame).fit(
+        disp=0,
+        cov_type="cluster",
+        cov_kwds={"groups": frame["edinetCode"].astype("category").cat.codes},
+    )
+    intervals = fitted.conf_int()
+    effects: list[dict[str, Any]] = []
+    for term in fitted.params.index:
+        label = f"{term}（1標準偏差）" if term in numeric else None
+        for name in categorical:
+            prefix = f"C({name}, Treatment(reference='{references[name]}'))[T."
+            if term.startswith(prefix):
+                label = f"{name}：{term.removeprefix(prefix).removesuffix(']')}"
+        if label is None:
+            continue
+        effects.append(
+            {
+                "term": label,
+                "odds_ratio": math.exp(float(fitted.params[term])),
+                "low": math.exp(float(intervals.loc[term, 0])),
+                "high": math.exp(float(intervals.loc[term, 1])),
+                "p": float(fitted.pvalues[term]),
+                "reference": ", ".join(f"{k}：{v}" for k, v in references.items()),
+            }
+        )
+    return effects
+
+
 FACTORS = {
     "purpose": "買収の目的",
     "relatedness": "買い手の事業との近さ",
@@ -232,6 +298,44 @@ def main() -> None:
                         f"{found['low']:.1%}〜{found['high']:.1%}",
                     ]
             lines.append("| " + " | ".join(cells) + " |")
+        lines.append("")
+    adjusted = (
+        (
+            "impaired",
+            "のれんの減損",
+            impaired_deals,
+            (
+                "goodwill_ratio",
+                "log_size_ratio",
+                "excess_roa_before",
+                "equity_ratio",
+                "cash_ratio",
+                "sales_growth",
+            ),
+            ("purpose", "relatedness", "consideration"),
+        ),
+        (
+            "roa_success",
+            "大きい買収の ROA",
+            big_deals,
+            ("goodwill_ratio", "excess_roa_before"),
+            ("relatedness",),
+        ),
+    )
+    for outcome, label, subset, numeric, categorical in adjusted:
+        effects = adjusted_effects(subset, outcome, numeric, categorical)
+        lines += [
+            f"## ほかの要因・年・業種をそろえても残る差：{label}",
+            "",
+            f"基準：{effects[0]['reference'] if effects else ''}。オッズ比が1より大きいほど起こりやすい",
+            "",
+            "| 要因 | オッズ比 | 95%の幅 | p 値 |",
+            "|---|---|---|---|",
+        ]
+        for e in effects:
+            lines.append(
+                f"| {e['term']} | {e['odds_ratio']:.2f} | {e['low']:.2f}〜{e['high']:.2f} | {e['p']:.3f} |"
+            )
         lines.append("")
     lines += [
         "## モデルの当たり具合（2019年までで学習し、2020年からで確かめる）",
