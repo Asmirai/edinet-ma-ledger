@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from ledger.roa import company_years, delta_roa, label_acquisitions, read_summary
+from ledger.roa import company_years, label_acquisitions, read_summary, roa_change
 
 HEADER = [
     "要素ID",
@@ -128,12 +128,15 @@ def _years(
 def 買収後3期の平均から買収前の期を引く() -> None:
     years = _years({2019: 0.02, 2021: 0.03, 2022: 0.05, 2023: 0.04})
 
-    assert delta_roa(years, 2020) == pytest.approx(0.02)
+    assert roa_change(years, 2020) == pytest.approx((0.02, 0.02))
 
 
 def 前後の期が欠ければ差を出さない() -> None:
-    assert delta_roa(_years({2019: 0.02, 2021: 0.03, 2022: 0.05, 2024: 0.01}), 2020) is None
-    assert delta_roa(_years({2021: 0.03, 2022: 0.05, 2023: 0.04}), 2020) is None
+    gap = _years({2019: 0.02, 2021: 0.03, 2022: 0.05, 2024: 0.01})
+    assert roa_change(gap, 2020) == "前後の ROA が欠けている"
+    assert (
+        roa_change(_years({2021: 0.03, 2022: 0.05, 2023: 0.04}), 2020) == "前後の ROA が欠けている"
+    )
 
 
 def _row(**changes: object) -> dict[str, object]:
@@ -205,3 +208,20 @@ def 親会社と子会社が同じ案件を載せたら総資産の小さいほ�
     labeled = label_acquisitions(rows, years_by_company, {"E1": "卸売業", "E9": "卸売業"})
 
     assert [row["primary"] for row in labeled] == [True, False]
+
+
+def 買収前のROAと同業との差と買収前のROAでそろえた超過の差を付ける() -> None:
+    # 買収前の ROA が同じ帯（10分位）の会社と比べる。E1 と E2 は同じ帯、E3 と E4 は上の帯
+    years_by_company = {
+        "E1": _years({2020: 0.02, 2022: 0.05, 2023: 0.05, 2024: 0.05}),
+        "E2": _years({2020: 0.02, 2022: 0.01, 2023: 0.01, 2024: 0.01}),
+        "E3": _years({2020: 0.10, 2022: 0.03, 2023: 0.03, 2024: 0.03}),
+        "E4": _years({2020: 0.10, 2022: 0.03, 2023: 0.03, 2024: 0.03}),
+    }
+    industries = dict.fromkeys(years_by_company, "情報・通信業")
+
+    [row] = label_acquisitions([_row()], years_by_company, industries)
+
+    assert row["roa_before"] == pytest.approx(0.02)
+    assert row["excess_roa_before"] == pytest.approx(0.02 - 0.06)
+    assert row["matched_excess_delta_roa"] == pytest.approx(0.03 - 0.01)

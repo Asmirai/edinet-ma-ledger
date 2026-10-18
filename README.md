@@ -83,6 +83,15 @@ uv run python -m ledger.roa
 - 決算期を変えた期、会計基準や連結・単体が変わった期をまたぐものは、理由を付けて空にする
 - 読んだ値は `data/financials.json` に残し、次からはまだ読んでいない有報だけを読む
 
+### 仮説を確かめる
+
+```bash
+uv run python -m ledger.industries split data/industries
+uv run python -m ledger.hypotheses
+```
+
+`industries split` は、成否を付けた主の行の「事業の内容」を150件ずつに分ける。各ファイルを Sonnet のサブエージェントに渡し、`ledger/industry_instructions.md` の指示で買われた会社を33業種に分けさせる。`hypotheses` は、同業・のれんの割合・買う会社の業績・買収前の収益性でそろえた比較の4つの仮説を確かめ、`data/hypotheses.md` に書く。
+
 ### 手元の LLM で抜き出す
 
 ```bash

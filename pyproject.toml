@@ -5,11 +5,14 @@ description = "有価証券報告書の企業結合の注記から、上場企�
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28.1",
+    "pandas>=3.0.6",
+    "statsmodels>=0.15.0",
 ]
 
 [dependency-groups]
 dev = [
     "basedpyright>=1.40.2",
+    "pandas-stubs>=3.0.5.260914",
     "pytest>=9.1.1",
     "ruff>=0.17.0",
 ]
