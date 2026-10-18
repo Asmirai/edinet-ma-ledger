@@ -17,6 +17,9 @@ def _row(deal_id: str, **changes: str) -> dict[str, str]:
         "delta_roa": "0.01",
         "excess_delta_roa": "0.01",
         "matched_excess_delta_roa": "0.02",
+        "delta_roa_1": "0.01",
+        "delta_roa_2": "",
+        "delta_roa_3": "0.03",
         "excess_roa_before": "0.0",
         "size_ratio": "0.2",
         "consideration_yen": "1000",
@@ -75,18 +78,34 @@ def 種類ごとに割合と95パーセントの幅を出す() -> None:
     assert rows[1]["low"] < 0.25 < rows[1]["high"]
 
 
-def 数値の列は4つの群に分ける() -> None:
-    deals = [{"edinetCode": f"E{i}", "equity_ratio": i / 10, "impaired": i >= 6} for i in range(8)]
+def 数値の列は全案件の四分位の境目で分け境目を群の名前に入れる() -> None:
+    deals: list[dict[str, Any]] = [
+        {"edinetCode": f"E{i}", "equity_ratio": i / 10, "impaired": i >= 7} for i in range(8)
+    ]
+    # 物差しが空の案件も、境目を決めるのには使う
+    deals.append({"edinetCode": "E9", "equity_ratio": 0.9, "impaired": None})
 
     rows = factor_summary(deals, "equity_ratio", "impaired", seed=1)
 
-    assert [r["group"] for r in rows] == [
-        "第1四分位（低い）",
+    assert [r["group"].split("（")[0] for r in rows] == [
+        "第1四分位",
         "第2四分位",
         "第3四分位",
-        "第4四分位（高い）",
+        "第4四分位",
     ]
+    assert rows[0]["group"].startswith("第1四分位（〜")
     assert [r["rate"] for r in rows] == [0.0, 0.0, 0.0, 1.0]
+
+
+def 買収の件数は値ごとの群に分ける() -> None:
+    deals: list[dict[str, Any]] = [
+        {"edinetCode": f"E{i}", "prior_deals": i % 5, "impaired": i % 5 >= 3} for i in range(200)
+    ]
+
+    rows = factor_summary(deals, "prior_deals", "impaired", seed=1)
+
+    assert [r["group"] for r in rows] == ["0件", "1件", "2件", "3件以上"]
+    assert rows[3]["n"] == 80
 
 
 def ほかの要因をそろえても残る差を回帰で出す() -> None:
@@ -107,8 +126,9 @@ def ほかの要因をそろえても残る差を回帰で出す() -> None:
             }
         )
 
-    effects = adjusted_effects(deals, "impaired", ("goodwill_ratio",), ("relatedness",))
+    result = adjusted_effects(deals, "impaired", ("goodwill_ratio",), ("relatedness",))
 
-    far = next(e for e in effects if e["term"] == "relatedness：遠い事業")
+    assert result["n"] == 1200
+    far = next(e for e in result["effects"] if e["term"] == "relatedness：遠い事業")
     assert far["odds_ratio"] > 3
     assert far["p"] < 0.001

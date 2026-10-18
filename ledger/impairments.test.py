@@ -73,6 +73,7 @@ def _deal(**changes: object) -> dict[str, object]:
         "filerName": "買い手株式会社",
         "acquiree_name": "株式会社アドウィル",
         "base_year": 2021,
+        "legal_form": "現金を対価とする株式取得",
     }
     return deal | changes
 
@@ -125,8 +126,22 @@ def 三期後の有報が無い案件は空にし候補に無い案件は減損�
         "E1": [(date(2021, 3, 31), "S1"), (date(2024, 3, 31), "S4")],
         "E2": [(date(2021, 3, 31), "S9")],
     }
-    deals = [_deal(), _deal(key="2-E1"), _deal(key="3-E2", edinetCode="E2")]
+    deals = [
+        _deal(),
+        _deal(key="2-E1"),
+        _deal(key="3-E2", edinetCode="E2"),
+        # 事業譲受は売り手の名前で探すことになり拾えないので、空にする
+        _deal(key="4-E1", legal_form="現金を対価とする事業譲受"),
+        # 名前が短すぎて探していない案件も空にする
+        _deal(key="5-E1", acquiree_name="株式会社振研"),
+    ]
 
     labels = label_impairments(deals, reports, {"1-E1": True})
 
-    assert labels == {"1-E1": True, "2-E1": False, "3-E2": None}
+    assert labels == {
+        "1-E1": (True, None),
+        "2-E1": (False, None),
+        "3-E2": (None, "3期後の有報が無い"),
+        "4-E1": (None, "事業譲受"),
+        "5-E1": (None, "名前が短すぎる"),
+    }
