@@ -4,9 +4,13 @@
 
 データは EDINET API v2 から取る。EDINET の情報は公共データ利用規約（PDL1.0）で公開されている。台帳を公開するときは、出典と、加工したこと・加工した者を書く。
 
-## 今の段階
+## 台帳のダウンロード
 
-2016-10〜2025-09 の有報から買収案件を抜き出した。次は、同じ案件の重複をまとめ、抜き出しの誤り率を確かめる（#7）。
+台帳の CSV は [Releases](https://github.com/Asmirai/edinet-ma-ledger/releases) に置いている。列と注意点は [docs/ma_ledger_csv.md](docs/ma_ledger_csv.md) にある。
+
+出典：EDINET閲覧（提出）サイト（https://disclosure2.edinet-fsa.go.jp/ ）、公共データ利用規約（第1.0版）（https://www.digital.go.jp/resources/open_data/public_data_license_v1.0 ）。株式会社Asmirai が、有価証券報告書から AI を使って買収の記載を抜き出し、加工した。国が作成した情報そのものではない。
+
+コードは MIT ライセンス（[LICENSE](LICENSE)）。
 
 ## 準備
 
@@ -112,6 +116,14 @@ uv run python -m ledger.factors
 物差しは2つ。その買収で生じたのれんを買収後3期のうちに減損したか（`data/impairments.csv`）と、取得原価が買い手の総資産の10%以上の大きい買収で、買収前の ROA が近い会社より ROA が伸びたか。小さい買収は買い手全体の ROA をほとんど動かさないので、ROA では見ない。
 
 `factors` は、買収の目的・事業の近さ・対価の種類・のれんの割合・買い手の財務（買収直前の有報から読む）などの要因ごとに、減損した割合と ROA が伸びた割合を出す。ほかの要因と年をそろえたオッズ比と、列を足す前と後のモデルの当たり具合も `data/factors.md` に書く。
+
+### 公開用の CSV を作る
+
+```bash
+uv run python -m ledger.export
+```
+
+台帳と、分析で付けた値（のれんの減損、ROA の変化、買収の目的、事業の近さ）を `data/public/ma_ledger.csv` に書く。注記の文章そのものは入れない。
 
 ### 手元の LLM で抜き出す
 
