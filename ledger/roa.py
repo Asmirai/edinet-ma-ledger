@@ -8,6 +8,7 @@ ROA は、親会社株主に帰属する当期純利益 ÷ 期末の総資産。
 （data/documents の有報の ZIP と、data/codelist/EdinetcodeDlInfo.csv（EDINET コードリスト）を先に置いておく）
 """
 
+import bisect
 import calendar
 import csv
 import io
@@ -163,19 +164,48 @@ def label_acquisitions(
     親会社と子会社が同じ案件を載せたときは、買収前の総資産が小さいほう（直接買った会社に近いほう）を主の行にする。
     """
     deltas: defaultdict[tuple[str, int], list[float]] = defaultdict(list)
+    befores: defaultdict[tuple[str, int], list[float]] = defaultdict(list)
+    # 買収前の ROA でそろえて比べるため、基準の年ごとに全社の（買収前の ROA、ΔROA）を集める
+    pairs: defaultdict[int, list[tuple[float, float]]] = defaultdict(list)
     for code, years in years_by_company.items():
         if code not in industries:
             continue
         for base_year in {end.year + 1 for end in years}:  # 買収前の期が base_year − 1
-            delta = delta_roa(years, base_year)
-            if delta is not None:
-                deltas[(industries[code], base_year)].append(delta)
+            window = _window(years, base_year)
+            if isinstance(window, str):
+                continue
+            delta = statistics.mean(window[1]) - window[0]
+            deltas[(industries[code], base_year)].append(delta)
+            befores[(industries[code], base_year)].append(window[0])
+            pairs[base_year].append((window[0], delta))
     medians = {key: statistics.median(values) for key, values in deltas.items()}
+    before_medians = {key: statistics.median(values) for key, values in befores.items()}
+    # 買収前の ROA の10分位の境目と、帯ごとの ΔROA の中央値
+    cuts = {
+        year: statistics.quantiles([b for b, _ in found], n=10, method="inclusive")
+        for year, found in pairs.items()
+        if len(found) >= 2
+    }
+    bands: defaultdict[tuple[int, int], list[float]] = defaultdict(list)
+    for year, found in pairs.items():
+        for before, delta in found:
+            if year in cuts:
+                bands[(year, bisect.bisect_right(cuts[year], before))].append(delta)
 
     labeled: list[dict[str, Any]] = []
     for row in rows:
         result: dict[str, Any] = dict.fromkeys(
-            ("base_year", "delta_roa", "excess_delta_roa", "success", "size_ratio", "assets_before")
+            (
+                "base_year",
+                "roa_before",
+                "excess_roa_before",
+                "delta_roa",
+                "excess_delta_roa",
+                "matched_excess_delta_roa",
+                "success",
+                "size_ratio",
+                "assets_before",
+            )
         )
         result["industry"] = industries.get(row["edinetCode"])
         years = years_by_company.get(row["edinetCode"])
@@ -216,6 +246,13 @@ def label_acquisitions(
                 result["excess_delta_roa"] = result["delta_roa"] - median
                 result["success"] = result["excess_delta_roa"] > 0
                 result["unlabeled_reason"] = None
+                result["roa_before"] = window[0]
+                industry_before = before_medians[(result["industry"] or "", base_year)]
+                result["excess_roa_before"] = window[0] - industry_before
+                if base_year in cuts:
+                    band = bisect.bisect_right(cuts[base_year], window[0])
+                    matched = statistics.median(bands[(base_year, band)])
+                    result["matched_excess_delta_roa"] = result["delta_roa"] - matched
         labeled.append(row | result)
 
     smallest: dict[Any, float] = {}
