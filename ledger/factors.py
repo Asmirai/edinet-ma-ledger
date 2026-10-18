@@ -37,7 +37,7 @@ from ledger.predict import (
 )
 from ledger.profiles import acquirer_profile
 from ledger.purposes import LAST_BASE_YEAR, consideration_kind, read_purposes
-from ledger.roa import LABELED_PATH
+from ledger.roa import FINANCIALS_PATH, LABELED_PATH
 
 PURPOSES_DIR = Path("data/purposes")
 PROFILES_PATH = Path("data/profiles.json")
@@ -46,8 +46,12 @@ BIG_DEAL = 0.1
 SEED = 20261019
 # 件数がこれより少ない群は、割合が揺れすぎるので表に出さない
 MIN_GROUP = 30
-# 値が小さな整数で、同じ値が多い列は、値ごとの群に分ける
-COUNTED = ("prior_deals",)
+# 値が小さな整数で、同じ値が多い列は、値ごとの群に分ける。値の後ろに付ける単位
+COUNTED = {"prior_deals": "件", "risk_count": "個"}
+# 危険信号の境目。減損した割合の表で、いちばん高い四分位の境目に当たる値
+HIGH_GOODWILL_RATIO = 0.84
+HIGH_EQUITY_RATIO = 0.65
+LARGE_DEAL = 0.05
 # 回帰では、これより少ない群を「少数の群」にまとめる。表より少し下げ、大きい買収（約300件）の群も残す
 MIN_REGRESSION_GROUP = 20
 # 回帰でオッズ比の基準にする群。読み手が「ふつうの買収」と受け取るもの
@@ -67,6 +71,7 @@ def deal_table(
     purposes: dict[str, tuple[str, str]],
     impairments: dict[str, bool],
     profiles: dict[str, dict[str, float | None]],
+    bases: dict[str, str],
 ) -> list[dict[str, Any]]:
     """成否を付けられる年の主の行について、列と2つの物差しを1行にまとめる。分からない値は None。"""
     dates: defaultdict[str, list[date]] = defaultdict(list)
@@ -112,6 +117,7 @@ def deal_table(
                     ledger_start,
                 ),
                 "industry": row["industry"],
+                "basis": bases.get(key),
                 "acquiree_industry": acquiree_industry,
                 "legal_form": legal_form_kind(row["legal_form"]),
                 "consideration": consideration_kind(row["legal_form"]),
@@ -120,7 +126,25 @@ def deal_table(
             }
             | {field: profile.get(field) for field in PROFILE_FIELDS}
         )
-    return deals
+    return [deal | {"risk_count": risk_count(deal)} for deal in deals]
+
+
+def risk_count(deal: dict[str, Any]) -> int | None:
+    """減損が多かった4つの特徴のうち、いくつ当てはまるか。どれかが分からなければ None。
+
+    のれんの割合が84%以上、遠い事業、買い手の自己資本比率が65%以上、取得原価が総資産の5%以上。
+    """
+    values = (deal["goodwill_ratio"], deal["relatedness"], deal["equity_ratio"], deal["size_ratio"])
+    if any(value is None for value in values):
+        return None
+    return sum(
+        (
+            deal["goodwill_ratio"] >= HIGH_GOODWILL_RATIO,
+            deal["relatedness"] == "遠い事業",
+            deal["equity_ratio"] >= HIGH_EQUITY_RATIO,
+            deal["size_ratio"] >= LARGE_DEAL,
+        )
+    )
 
 
 def _number(text: str) -> float | None:
@@ -154,9 +178,10 @@ def factor_summary(
         for deal in known:
             grouped[labels[bisect.bisect_right(cuts, deal[factor])]].append(deal)
     elif factor in COUNTED:
-        grouped = {label: [] for label in ("0件", "1件", "2件", "3件以上")}
+        unit = COUNTED[factor]
+        grouped = {f"{n}{unit}": [] for n in (0, 1, 2)} | {f"3{unit}以上": []}
         for deal in known:
-            grouped[f"{deal[factor]}件" if deal[factor] < 3 else "3件以上"].append(deal)
+            grouped[f"{deal[factor]}{unit}" if deal[factor] < 3 else f"3{unit}以上"].append(deal)
     else:
         for deal in known:
             grouped.setdefault(str(deal[factor]), []).append(deal)
@@ -267,6 +292,8 @@ FACTORS = {
     "equity_ratio": "買い手の自己資本比率",
     "cash_ratio": "買い手の現金 ÷ 総資産",
     "prior_deals": "直前2年の買収の件数",
+    "risk_count": "当てはまる危険信号の数（のれんの割合84%以上・遠い事業・自己資本比率65%以上・総資産の5%以上）",
+    "basis": "買い手の会計基準（買収前の期）",
 }
 
 
@@ -295,6 +322,23 @@ def _profiles(rows: list[dict[str, str]]) -> dict[str, dict[str, float | None]]:
     return saved
 
 
+def _bases() -> dict[str, str]:
+    """案件ごとの、買い手の買収前の期の会計基準（日本基準・IFRS・米国基準・単体）。ledger.roa が残した値から読む。"""
+    with LABELED_PATH.open(encoding="utf-8-sig", newline="") as file:
+        rows = [r for r in csv.DictReader(file) if r["base_year"]]
+    saved = cast(dict[str, dict[str, Any]], json.loads(FINANCIALS_PATH.read_text(encoding="utf-8")))
+    by_year: dict[tuple[str, int], str] = {}
+    for report in saved.values():
+        period_end = date.fromisoformat(report["periodEnd"])
+        for years_ago, values in cast(dict[str, list[Any]], report["summary"]).items():
+            by_year[(report["edinetCode"], period_end.year - int(years_ago))] = str(values[2])
+    return {
+        f"{r['deal_id']}-{r['edinetCode']}": by_year[(r["edinetCode"], int(r["base_year"]) - 1)]
+        for r in rows
+        if (r["edinetCode"], int(r["base_year"]) - 1) in by_year
+    }
+
+
 def main() -> None:
     with LABELED_PATH.open(encoding="utf-8-sig", newline="") as file:
         rows = list(csv.DictReader(file))
@@ -308,6 +352,7 @@ def main() -> None:
         read_purposes(PURPOSES_DIR),
         impairments,
         _profiles(rows),
+        _bases(),
     )
     impaired_deals = [d for d in deals if d["impaired"] is not None]
     big_deals = [d for d in deals if d["roa_success"] is not None]
