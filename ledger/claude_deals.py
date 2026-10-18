@@ -16,9 +16,10 @@ from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
-from ledger.deals import ACQUISITION, NOTES_DIR, notes_to_read, unverified_fields
+from ledger.deals import ACQUISITION, notes_to_read, unverified_fields
 from ledger.document_lists import LISTS_DIR
 from ledger.edinet import is_annual_report
+from ledger.notes import NOTES_DIR
 
 CHUNK_SIZE = 30
 

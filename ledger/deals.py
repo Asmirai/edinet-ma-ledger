@@ -16,6 +16,8 @@ from typing import Any, cast
 
 import httpx
 
+from ledger.notes import NOTES_DIR
+
 # 「該当事項はありません」「連結財務諸表に同一の内容を記載」などの定型文は、どれも 80 字に届かない。
 # 中身のある注記は、名称・企業結合日・取得原価を書くだけで 150 字を超える
 MIN_SUBSTANTIVE_LENGTH = 150
@@ -28,7 +30,6 @@ PRIOR_PERIOD = "前期"
 PRIOR_PERIOD_WORDS = ("前連結会計年度", "前事業年度")
 # モデルが空の値を、null ではなく文字で返すことがある
 EMPTY_VALUES = ("", "null", "none", "-", "－")
-NOTES_DIR = Path("data/notes")
 DEALS_DIR = Path("data/deals")
 # 書類一覧から写した項目を、案件のファイルにも写す
 KEPT_FIELDS = ("docID", "edinetCode", "secCode", "filerName", "periodEnd")
