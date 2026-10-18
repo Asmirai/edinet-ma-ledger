@@ -8,7 +8,7 @@
 
 台帳の CSV は [Releases](https://github.com/Asmirai/edinet-ma-ledger/releases) に置いている。列と注意点は [docs/ma_ledger_csv.md](docs/ma_ledger_csv.md) にある。
 
-出典：EDINET閲覧（提出）サイト（https://disclosure2.edinet-fsa.go.jp/ ）、公共データ利用規約（第1.0版）（https://www.digital.go.jp/resources/open_data/public_data_license_v1.0 ）。株式会社Asmirai が、有価証券報告書から AI を使って買収の記載を抜き出し、加工した。国が作成した情報そのものではない。
+出典：EDINET閲覧（提出）サイト（https://disclosure2.edinet-fsa.go.jp/ ）、公共データ利用規約（第1.0版）（https://www.digital.go.jp/resources/open_data/public_data_license_v1.0 ）。合同会社Asmirai が、有価証券報告書から AI を使って買収の記載を抜き出し、加工した。国が作成した情報そのものではない。
 
 コードは MIT ライセンス（[LICENSE](LICENSE)）。
 

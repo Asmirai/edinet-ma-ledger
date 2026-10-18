@@ -6,7 +6,7 @@
 
 出典：EDINET閲覧（提出）サイト（https://disclosure2.edinet-fsa.go.jp/ ）、公共データ利用規約（第1.0版）（https://www.digital.go.jp/resources/open_data/public_data_license_v1.0 ）
 
-加工：株式会社Asmirai が、EDINET API v2 で取得した有価証券報告書から、AI（Claude）を使って買収の記載を抜き出し、重複をまとめ、のれんの減損・買収後の ROA の変化・買収の目的などを付け加えました。国が作成した情報そのものではありません。
+加工：合同会社Asmirai が、EDINET API v2 で取得した有価証券報告書から、AI（Claude）を使って買収の記載を抜き出し、重複をまとめ、のれんの減損・買収後の ROA の変化・買収の目的などを付け加えました。国が作成した情報そのものではありません。
 
 この CSV を使うときは、上の出典と加工の記載を表示してください（公共データ利用規約（第1.0版）に準じます）。作り方のコードは https://github.com/Asmirai/edinet-ma-ledger にあります（MIT ライセンス）。
 
