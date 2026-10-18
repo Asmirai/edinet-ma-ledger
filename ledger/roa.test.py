@@ -205,3 +205,20 @@ def 親会社と子会社が同じ案件を載せたら総資産の小さいほ�
     labeled = label_acquisitions(rows, years_by_company, {"E1": "卸売業", "E9": "卸売業"})
 
     assert [row["primary"] for row in labeled] == [True, False]
+
+
+def 買収前のROAと同業との差と買収前のROAでそろえた超過の差を付ける() -> None:
+    # 買収前の ROA が同じ帯（10分位）の会社と比べる。E1 と E2 は同じ帯、E3 と E4 は上の帯
+    years_by_company = {
+        "E1": _years({2020: 0.02, 2022: 0.05, 2023: 0.05, 2024: 0.05}),
+        "E2": _years({2020: 0.02, 2022: 0.01, 2023: 0.01, 2024: 0.01}),
+        "E3": _years({2020: 0.10, 2022: 0.03, 2023: 0.03, 2024: 0.03}),
+        "E4": _years({2020: 0.10, 2022: 0.03, 2023: 0.03, 2024: 0.03}),
+    }
+    industries = dict.fromkeys(years_by_company, "情報・通信業")
+
+    [row] = label_acquisitions([_row()], years_by_company, industries)
+
+    assert row["roa_before"] == pytest.approx(0.02)
+    assert row["excess_roa_before"] == pytest.approx(0.02 - 0.06)
+    assert row["matched_excess_delta_roa"] == pytest.approx(0.03 - 0.01)
