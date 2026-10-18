@@ -28,6 +28,8 @@ def 議決権比率の数字を読む() -> None:
     assert voting_number("100％") == 100
     assert voting_number("５１.０％") == 51
     assert voting_number("取得前 20％ 取得後 60％") == 60
+    assert voting_number("100％（うち間接保有 24.49%）") == 100
+    assert voting_number("不二サッシ株式会社 97.0％、日海不二サッシ株式会社 3.0％") == 97
     assert voting_number("") is None
 
 
@@ -53,18 +55,20 @@ def _ledger_row(deal_id: int, date: str, **changes: str) -> dict[str, str]:
     return row | changes
 
 
-def 成否を付けた主の行から列を作りそれまでの買収の件数を数える() -> None:
+def 成否を付けた主の行から列を作り直前2年の買収の件数を数える() -> None:
     rows = [
         _ledger_row(1, "2017-04-01", success="", matched_excess_delta_roa=""),
         _ledger_row(2, "2018-04-01", primary="False"),
         _ledger_row(3, "2019-04-01"),
         _ledger_row(4, "2019-05-01", matched_excess_delta_roa="-0.01"),
+        # 台帳の始まりから2年たっていないので、直前2年の件数はそろわない
+        _ledger_row(5, "2018-06-01"),
     ]
 
     built = model_rows(rows, {"3-E1": "卸売業", "4-E1": "小売業"})
 
-    assert [r["prior_deals"] for r in built] == [2, 3]
-    assert [r["target"] for r in built] == [True, False]
+    assert [r["prior_deals"] for r in built] == [3, 3, None]
+    assert [r["target"] for r in built] == [True, False, True]
     assert built[0]["same_industry"] == 1.0
     assert built[1]["same_industry"] == 0.0
     assert built[0]["goodwill_ratio"] == pytest.approx(0.3)
