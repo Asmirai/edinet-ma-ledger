@@ -92,6 +92,14 @@ uv run python -m ledger.hypotheses
 
 `industries split` は、成否を付けた主の行の「事業の内容」を150件ずつに分ける。各ファイルを Sonnet のサブエージェントに渡し、`ledger/industry_instructions.md` の指示で買われた会社を33業種に分けさせる。`hypotheses` は、同業・のれんの割合・買う会社の業績・買収前の収益性でそろえた比較の4つの仮説を確かめ、`data/hypotheses.md` に書く。
 
+### 成否を当てられるかを確かめる
+
+```bash
+uv run python -m ledger.predict
+```
+
+買収の時点で分かる情報（同業か、のれんの割合、買収の大きさ、買収前の ROA、業種、法的形式、議決権比率、それまでの買収の件数）で、買収前の ROA でそろえた成否を当てる。基準の年が2019年までで学習し、2020年からで確かめる。全件の成功率・ロジスティック回帰・勾配ブースティングの AUC などを `data/predict.md` に書く。
+
 ### 手元の LLM で抜き出す
 
 ```bash
