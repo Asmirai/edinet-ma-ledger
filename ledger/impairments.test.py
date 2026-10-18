@@ -4,15 +4,13 @@ import zipfile
 from datetime import date
 from pathlib import Path
 
-import pytest
-
+from ledger.chunks import write_chunks
 from ledger.impairments import (
     candidate_items,
     core_name,
     impairment_passages,
     label_impairments,
     read_impairments,
-    split_candidates,
 )
 
 HEADER = [
@@ -115,20 +113,11 @@ def 基準の期から3期後までの有報で拾えた案件だけを候補に
 
 def 確かめた結果を案件ごとに読む(tmp_path: Path) -> None:
     items = [{"key": "1-E1"}, {"key": "2-E1"}]
-    split_candidates(items, tmp_path)
+    write_chunks(items, tmp_path, 40)
     results = [{"key": "1-E1", "impaired": True}, {"key": "2-E1", "impaired": False}]
     (tmp_path / "out" / "chunk_000.json").write_text(json.dumps(results), encoding="utf-8")
 
     assert read_impairments(tmp_path) == {"1-E1": True, "2-E1": False}
-
-
-def 出力の並びが入力と違えば止める(tmp_path: Path) -> None:
-    split_candidates([{"key": "1-E1"}, {"key": "2-E1"}], tmp_path)
-    results = [{"key": "2-E1", "impaired": True}, {"key": "1-E1", "impaired": False}]
-    (tmp_path / "out" / "chunk_000.json").write_text(json.dumps(results), encoding="utf-8")
-
-    with pytest.raises(ValueError, match="chunk_000"):
-        read_impairments(tmp_path)
 
 
 def 三期後の有報が無い案件は空にし候補に無い案件は減損していないとみなす() -> None:

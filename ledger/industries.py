@@ -9,11 +9,11 @@
 """
 
 import csv
-import json
 import sys
 from pathlib import Path
 from typing import Any, cast
 
+from ledger.chunks import read_outputs, write_chunks
 from ledger.roa import LABELED_PATH
 
 # EDINET コードリストの「提出者業種」と同じ書き方にする
@@ -32,8 +32,6 @@ def split_businesses(rows: list[dict[str, Any]], out_dir: Path) -> None:
 
     前に分けた入力があれば止める。分け直すと、分け終えた出力と入力が食い違う。
     """
-    if any((out_dir / "in").glob("chunk_*.jsonl")):
-        raise FileExistsError(f"{out_dir / 'in'} に前に分けた入力がある")
     items = [
         {
             "key": f"{row['deal_id']}-{row['edinetCode']}",
@@ -44,16 +42,7 @@ def split_businesses(rows: list[dict[str, Any]], out_dir: Path) -> None:
         for row in rows
         if row["primary"] is True and row["success"] is not None
     ]
-    (out_dir / "in").mkdir(parents=True, exist_ok=True)
-    (out_dir / "out").mkdir(exist_ok=True)
-    for start in range(0, len(items), CHUNK_SIZE):
-        lines = "".join(
-            json.dumps(item, ensure_ascii=False) + "\n"
-            for item in items[start : start + CHUNK_SIZE]
-        )
-        (out_dir / "in" / f"chunk_{start // CHUNK_SIZE:03d}.jsonl").write_text(
-            lines, encoding="utf-8"
-        )
+    write_chunks(items, out_dir, CHUNK_SIZE)
 
 
 def read_industries(out_dir: Path) -> dict[str, str | None]:
@@ -62,20 +51,11 @@ def read_industries(out_dir: Path) -> dict[str, str | None]:
     出力の並びが入力と違うとき、33業種に無い業種があるときは止める。
     """
     industries: dict[str, str | None] = {}
-    for in_path in sorted((out_dir / "in").glob("chunk_*.jsonl")):
-        out_path = out_dir / "out" / f"{in_path.stem}.json"
-        keys = [
-            cast(dict[str, str], json.loads(line))["key"]
-            for line in in_path.read_text(encoding="utf-8").splitlines()
-        ]
-        results = cast(list[dict[str, Any]], json.loads(out_path.read_text(encoding="utf-8")))
-        if [result["key"] for result in results] != keys:
-            raise ValueError(f"{out_path.name} の並びが入力と違う")
-        for result in results:
-            industry = cast(str | None, result["industry"])
-            if industry is not None and industry not in INDUSTRIES:
-                raise ValueError(f"{out_path.name} に33業種に無い業種がある：{industry}")
-            industries[result["key"]] = industry
+    for result in read_outputs(out_dir):
+        industry = cast(str | None, result["industry"])
+        if industry is not None and industry not in INDUSTRIES:
+            raise ValueError(f"33業種に無い業種がある：{industry}")
+        industries[str(result["key"])] = industry
     return industries
 
 

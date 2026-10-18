@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from ledger.acquisitions import COMPANY_TYPES, FORMER_OR_CURRENT_NAME
+from ledger.chunks import read_outputs, write_chunks
 from ledger.notes import DOCUMENTS_DIR, NOTES_DIR, REPORT_CSV_PREFIX
 from ledger.roa import LABELED_PATH
 
@@ -93,36 +94,9 @@ def candidate_items(
     return items
 
 
-def split_candidates(items: list[dict[str, Any]], out_dir: Path) -> None:
-    """候補を40件ずつ out_dir/in に書く。前に分けた入力があれば止める。"""
-    if any((out_dir / "in").glob("chunk_*.jsonl")):
-        raise FileExistsError(f"{out_dir / 'in'} に前に分けた入力がある")
-    (out_dir / "in").mkdir(parents=True, exist_ok=True)
-    (out_dir / "out").mkdir(exist_ok=True)
-    for start in range(0, len(items), CHUNK_SIZE):
-        lines = "".join(
-            json.dumps(item, ensure_ascii=False) + "\n"
-            for item in items[start : start + CHUNK_SIZE]
-        )
-        (out_dir / "in" / f"chunk_{start // CHUNK_SIZE:03d}.jsonl").write_text(
-            lines, encoding="utf-8"
-        )
-
-
 def read_impairments(out_dir: Path) -> dict[str, bool]:
-    """サブエージェントが確かめた結果を、案件ごとに読む。出力の並びが入力と違えば止める。"""
-    impaired: dict[str, bool] = {}
-    for in_path in sorted((out_dir / "in").glob("chunk_*.jsonl")):
-        out_path = out_dir / "out" / f"{in_path.stem}.json"
-        keys = [
-            cast(dict[str, Any], json.loads(line))["key"]
-            for line in in_path.read_text(encoding="utf-8").splitlines()
-        ]
-        results = cast(list[dict[str, Any]], json.loads(out_path.read_text(encoding="utf-8")))
-        if [result["key"] for result in results] != keys:
-            raise ValueError(f"{out_path.name} の並びが入力と違う")
-        impaired |= {str(r["key"]): bool(r["impaired"]) for r in results}
-    return impaired
+    """サブエージェントが確かめた結果を、案件ごとに読む。"""
+    return {str(r["key"]): bool(r["impaired"]) for r in read_outputs(out_dir)}
 
 
 def label_impairments(
@@ -170,7 +144,7 @@ def main() -> None:
         items = candidate_items(
             deals, reports, lambda doc_id: (DOCUMENTS_DIR / f"{doc_id}.zip").read_bytes()
         )
-        split_candidates(items, out_dir)
+        write_chunks(items, out_dir, CHUNK_SIZE)
         print(f"のれんが生じた案件 {len(deals)} 件のうち、減損の候補 {len(items)} 件")
         return
     if command != "label":
