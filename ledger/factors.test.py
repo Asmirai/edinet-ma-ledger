@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from ledger.factors import BIG_DEAL, deal_table, factor_summary
+from ledger.factors import BIG_DEAL, adjusted_effects, deal_table, factor_summary
 
 
 def _row(deal_id: str, **changes: str) -> dict[str, str]:
@@ -87,3 +87,28 @@ def 数値の列は4つの群に分ける() -> None:
         "第4四分位（高い）",
     ]
     assert [r["rate"] for r in rows] == [0.0, 0.0, 0.0, 1.0]
+
+
+def ほかの要因をそろえても残る差を回帰で出す() -> None:
+    import random
+
+    rng = random.Random(0)
+    deals: list[dict[str, Any]] = []
+    for i in range(1200):
+        far = i % 3 == 0
+        deals.append(
+            {
+                "edinetCode": f"E{i % 300}",
+                "industry": "卸売業" if i % 2 else "小売業",
+                "base_year": 2017 + i % 4,
+                "relatedness": "遠い事業" if far else "同じ事業",
+                "goodwill_ratio": rng.random(),
+                "impaired": rng.random() < (0.4 if far else 0.1),
+            }
+        )
+
+    effects = adjusted_effects(deals, "impaired", ("goodwill_ratio",), ("relatedness",))
+
+    far = next(e for e in effects if e["term"] == "relatedness：遠い事業")
+    assert far["odds_ratio"] > 3
+    assert far["p"] < 0.001
