@@ -70,6 +70,19 @@ uv run python -m ledger.review score data/review
 
 `sample` は年ごとに20件の注記を無作為に選び、10件ずつ `in/chunk_NNN.jsonl` に分ける。取得の案件が無い注記も選ぶ（見落としも数えるため）。各ファイルを Opus のサブエージェントに渡し、`ledger/review_instructions.md` の指示で原文と見比べさせる。`score` は、見落とし、取得でないのに取得とした数、項目ごとの誤りを数える。
 
+### 買収前後の ROA で成否を付ける
+
+```bash
+uv run python -m ledger.roa
+```
+
+台帳の取得ごとに、買った会社の ROA（親会社株主に帰属する当期純利益 ÷ 期末の総資産）が買収の前後でどう変わったかを出し、`data/acquisitions_roa.csv` に書く。値は取得済みの有報の「主要な経営指標等の推移」（5期分）から読む。業種は EDINET コードリスト（`data/codelist/EdinetcodeDlInfo.csv`）から引く。
+
+- 企業結合日を含む事業年度を基準の期とし、買収後3期の ROA の平均から買収前の期の ROA を引く（ΔROA）
+- 同じ業種・同じ基準の年の会社の ΔROA の中央値を引き、0 より大きければ成功とする
+- 決算期を変えた期、会計基準や連結・単体が変わった期をまたぐものは、理由を付けて空にする
+- 読んだ値は `data/financials.json` に残し、次からはまだ読んでいない有報だけを読む
+
 ### 手元の LLM で抜き出す
 
 ```bash
