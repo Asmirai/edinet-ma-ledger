@@ -15,13 +15,13 @@ from ledger.scorer import (
 )
 
 
-def 候補の数字を4つの列にし事業の似かたを台帳の分類に読み替える() -> None:
+def 候補の数字を4つの列にし業種の関係を台帳の分類に読み替える() -> None:
     inputs = deal_inputs(
         price=50,
         target_net_assets=5,
         acquirer_assets=500,
         equity_ratio=0.7,
-        relatedness="似ていない事業",
+        relatedness="異業種",
     )
 
     assert inputs["goodwill_ratio"] == pytest.approx(0.9)
@@ -36,7 +36,7 @@ def 相手の純資産が買収額より大きければ上乗せ率は0にする
         target_net_assets=12,
         acquirer_assets=500,
         equity_ratio=0.4,
-        relatedness="同じ事業",
+        relatedness="同業種",
     )
 
     assert inputs["goodwill_ratio"] == 0
@@ -48,7 +48,7 @@ def 相手の純資産がマイナスなら上乗せ率は1を超える() -> Non
         target_net_assets=-2,
         acquirer_assets=500,
         equity_ratio=0.4,
-        relatedness="同じ事業",
+        relatedness="同業種",
     )
 
     assert inputs["goodwill_ratio"] == pytest.approx(1.2)
@@ -61,7 +61,7 @@ def 上乗せ率が台帳で使った上限を超えたらValueErrorにする() 
             target_net_assets=-6,
             acquirer_assets=500,
             equity_ratio=0.4,
-            relatedness="同じ事業",
+            relatedness="同業種",
         )
 
 
@@ -71,7 +71,7 @@ def 使えない数字ならValueErrorにする() -> None:
         "target_net_assets": 5,
         "acquirer_assets": 500,
         "equity_ratio": 0.4,
-        "relatedness": "同じ事業",
+        "relatedness": "同業種",
     }
     invalid: list[dict[str, Any]] = [
         {"price": 0},
@@ -131,14 +131,14 @@ def _synthetic(count: int) -> list[dict[str, Any]]:
 def 危ない案件ほど高い確率を出す() -> None:
     model = fit_scorer(_synthetic(900))
     safe = deal_inputs(
-        price=10, target_net_assets=9, acquirer_assets=500, equity_ratio=0.5, relatedness="同じ事業"
+        price=10, target_net_assets=9, acquirer_assets=500, equity_ratio=0.5, relatedness="同業種"
     )
     risky = deal_inputs(
         price=10,
         target_net_assets=0.5,
         acquirer_assets=500,
         equity_ratio=0.5,
-        relatedness="似ていない事業",
+        relatedness="異業種",
     )
 
     low, high = predict(model, [safe, risky])
@@ -174,7 +174,7 @@ def 買収額を上げるほど確率が上がる() -> None:
         target_net_assets=5,
         acquirer_assets=500,
         equity_ratio=0.5,
-        relatedness="似た事業",
+        relatedness="関連業種",
         prices=[6, 10, 20, 40],
     )
 
@@ -186,8 +186,8 @@ def 自社と候補のCSVを読む(tmp_path: Any) -> None:
     path = tmp_path / "candidates.csv"
     path.write_text(
         "name,price,target_net_assets,acquirer_assets,equity_ratio,relatedness\n"
-        "B社,50,5,500,0.7,似ていない事業\n"
-        "C社,10,8,500,0.7,似た事業\n",
+        "B社,50,5,500,0.7,異業種\n"
+        "C社,10,8,500,0.7,関連業種\n",
         encoding="utf-8",
     )
 
