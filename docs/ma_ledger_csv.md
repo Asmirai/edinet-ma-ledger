@@ -6,7 +6,7 @@
 
 出典：EDINET閲覧（提出）サイト（https://disclosure2.edinet-fsa.go.jp/ ）、公共データ利用規約（第1.0版）（https://www.digital.go.jp/resources/open_data/public_data_license_v1.0 ）
 
-加工：合同会社Asmirai が、EDINET API v2 で取得した有価証券報告書から、AI（Claude）を使って買収の記載を抜き出し、重複をまとめ、のれんの減損・買収後の ROA の変化・買収の目的などを付け加えました。国が作成した情報そのものではありません。
+加工：合同会社Asmirai が、EDINET API v2 で取得した有価証券報告書から、AI（Claude）を使って買収の記載を抜き出し、重複をまとめ、のれんの減損・買収後の ROA の変化・買収の目的・業種の関係・買い手の自己資本比率・買い手に対する買収の大きさを付け加えました。国が作成した情報そのものではありません。
 
 この CSV を使うときは、上の出典と加工の記載を表示してください（公共データ利用規約（第1.0版）に準じます）。作り方のコードは https://github.com/Asmirai/edinet-ma-ledger にあります（MIT ライセンス）。
 
@@ -15,7 +15,7 @@
 | 列 | 内容 |
 |---|---|
 | deal_id | 買収の番号。親会社と子会社が同じ買収を載せたときは同じ番号 |
-| primary | 同じ買収を載せた会社のうち、買収前の総資産が小さいほう（直接買った会社に近いほう）なら True |
+| primary | 同じ買収を載せた会社のうち、買収前の総資産が小さいほう（直接買った子会社であることが多い）なら True |
 | acquirer_edinet_code・acquirer_sec_code・acquirer_name | 買い手の EDINET コード・証券コード・名前 |
 | acquirer_industry | 買い手の業種（EDINET コードリストの「提出者業種」） |
 | acquiree_name・acquiree_business | 買われた会社（または事業）の名前と事業の内容（注記の記載から） |

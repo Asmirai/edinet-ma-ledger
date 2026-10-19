@@ -25,13 +25,14 @@ cd edinet-ma-ledger
 uv sync
 ```
 
-PR を出す前に、CI と同じ4つのチェックを手元で通してください。
+PR を出す前に、CI と同じチェックを手元で通してください。
 
 ```bash
 uv run ruff check .
 uv run ruff format --check .
 uv run basedpyright          # strict
-uv run pytest -q
+uv run pytest -q --cov       # カバレッジが80%を下回ると落ちる
+node --test site/model.test.mjs
 ```
 
 テストは `data/` を使いません。EDINET の API キーと書類が無くても通ります。API キーが要るのは、台帳を EDINET の書類から作り直すときだけです（手順は README）。
@@ -54,7 +55,7 @@ uv run pytest -q
 2. ブランチを `feature/<issue番号>/<短い名前>` で切ります（例：`feature/38/project-docs`）。外部の方は fork して、同じ名前のブランチを切ってください
 3. コミットは、テストと実装を分けます。テストのコミットを先にします
 4. Draft PR を出します。本文は [PR のテンプレート](.github/PULL_REQUEST_TEMPLATE.md)に沿って、1行目に `Closes #<issue番号>` を書きます
-5. CI（ruff・basedpyright・pytest）が通り、レビューで承認されたらマージします
+5. CI（ruff・basedpyright・pytest・Node のテスト）が通り、レビューで承認されたらマージします
 
 `main` へ直接 push しません。
 
