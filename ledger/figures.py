@@ -41,28 +41,24 @@ ACQUIRER = {"acquirer_assets": 500.0, "equity_ratio": 0.55}
 CANDIDATES: list[dict[str, Any]] = [
     {
         "name": "B社",
-        "label": "同じ事業",
         "price": 15.0,
         "target_net_assets": 12.0,
         "relatedness": "同じ事業",
     },
     {
         "name": "C社",
-        "label": "近い事業",
         "price": 20.0,
         "target_net_assets": 6.0,
-        "relatedness": "近い事業",
+        "relatedness": "似た事業",
     },
     {
         "name": "D社",
-        "label": "遠い事業",
         "price": 30.0,
         "target_net_assets": 3.0,
-        "relatedness": "遠い事業",
+        "relatedness": "似ていない事業",
     },
     {
         "name": "E社",
-        "label": "同じ事業",
         "price": 40.0,
         "target_net_assets": 2.0,
         "relatedness": "同じ事業",
@@ -216,7 +212,7 @@ def _bounds(deals: list[dict[str, Any]], factor: str) -> tuple[float, float]:
 def signals(deals: list[dict[str, Any]], path: Path) -> None:
     items: list[tuple[str, str, dict[str, Any], dict[str, Any]]] = []
     safe, risky = _ends(deals, "relatedness")
-    items.append(("事業の近さ", "同じ事業 → 遠い事業", safe, risky))
+    items.append(("事業が似ているか", "同じ事業 → 似ていない事業", safe, risky))
     for factor, name in (
         ("goodwill_ratio", "上乗せ率"),
         ("equity_ratio", "自社の自己資本比率"),
@@ -229,7 +225,7 @@ def signals(deals: list[dict[str, Any]], path: Path) -> None:
     items.sort(key=lambda item: item[3]["rate"] / item[2]["rate"])
     fig = _figure(
         "4つの変数は、どれも失敗率をはっきり分けた",
-        "それぞれの変数で、最も低い4分の1と最も高い4分の1（事業の近さは、同じ事業と遠い事業）の失敗率",
+        "それぞれの変数で、最も低い4分の1と最も高い4分の1（事業は、同じ事業と似ていない事業）の失敗率",
         "上乗せ率＝（買収額 − 相手の純資産）÷ 買収額。大きさ＝買収額 ÷ 自社の総資産。境目は全件の4分の1ずつに分けた値。",
     )
     ax = fig.add_axes((0.34, 0.2, 0.6, 0.58))
@@ -295,17 +291,19 @@ def confounding(deals: list[dict[str, Any]], path: Path) -> None:
         return sum(d["relatedness"] == "遠い事業" for d in group) / len(group) * 100
 
     fig = _figure(
-        "新規参入の失敗が多く見えたのは、遠い事業の買収が多く含まれていたから",
+        "新規参入の失敗が多く見えたのは、似ていない事業の買収が多かったから",
         f"買う目的が新しい事業への参入だった買収（{len(entry)}件）と、それ以外（{len(other):,}件）",
-        "事業の近さは、有価証券報告書の「企業結合を行った主な理由」を AI に読ませて分けた。",
+        "事業が似ているかは、有価証券報告書の「企業結合を行った主な理由」を AI に読ませて分けた。",
     )
     left = fig.add_axes((0.06, 0.22, 0.38, 0.48))
     right = fig.add_axes((0.56, 0.22, 0.4, 0.48))
-    fig.text(0.06, 0.76, "遠い事業の買収が占める割合", fontproperties=BOLD, fontsize=10, color=INK)
+    fig.text(
+        0.06, 0.76, "似ていない事業の買収が占める割合", fontproperties=BOLD, fontsize=10, color=INK
+    )
     fig.text(
         0.56,
         0.76,
-        "失敗率：すべての買収と、事業が「近い」買収だけ",
+        "失敗率：すべての買収と、似た事業の買収だけ",
         fontproperties=BOLD,
         fontsize=10,
         color=INK,
@@ -329,7 +327,7 @@ def confounding(deals: list[dict[str, Any]], path: Path) -> None:
     near_other = [d for d in other if d["relatedness"] == "近い事業"]
     pairs = [
         ("すべて", rate(entry), rate(other)),
-        ("近い事業だけ", rate(near_entry), rate(near_other)),
+        ("似た事業だけ", rate(near_entry), rate(near_other)),
     ]
     for i, (_, a, b) in enumerate(pairs):
         right.bar(i - 0.17, a, width=0.32, color=RISK)
@@ -399,7 +397,7 @@ def candidates(deals: list[dict[str, Any]], path: Path) -> None:
         fig.text(
             0.04,
             top + 0.015,
-            f"{candidate['name']}（{candidate['label']}）",
+            f"{candidate['name']}（{candidate['relatedness']}）",
             fontproperties=BOLD,
             fontsize=10.5,
             color=INK,
@@ -451,7 +449,7 @@ def curve(deals: list[dict[str, Any]], path: Path) -> None:
     shown = [(p, v) for p, v in zip(prices, values) if p <= limit * 2.2]
     fig = _figure(
         f"{candidate['name']}を{limit:.0f}億円より高く買うと、失敗の見積もりが過去の平均を上回る",
-        f"{candidate['name']}（純資産{candidate['target_net_assets']:.0f}億円、{candidate['label']}）の"
+        f"{candidate['name']}（純資産{candidate['target_net_assets']:.0f}億円、{candidate['relatedness']}）の"
         "買収額だけを変えて、モデルに入れたときの失敗の確率",
         "買収額が上がると、上乗せ率と、自社に対する大きさの両方が上がる。",
     )

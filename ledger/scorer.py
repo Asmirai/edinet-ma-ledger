@@ -4,7 +4,7 @@
 - 上乗せ率：（買収額 − 取得する持分に当たる相手の純資産）÷ 買収額。台帳の「取得原価のうちのれんの割合」に当たる
 - 規模：買収額 ÷ 自社の総資産（対数にして使う）
 - 自社の自己資本比率
-- 事業の近さ（同じ事業・近い事業・遠い事業）
+- 事業が似ているか（同じ事業・似た事業・似ていない事業）
 目的・対価・現金比率・買収前の ROA を足しても、2020年度以降で確かめた当たり具合はほとんど変わらなかった。
 
 確かめ方の限界：4つの数字は全期間のデータを見て選んだ（2019年度までだけでも同じ向きの差が出る）。
@@ -33,7 +33,8 @@ REPORT_PATH = Path("data/scorer.md")
 LAST_TRAIN_YEAR = 2019
 NUMERIC = ("goodwill_ratio", "log_size_ratio", "equity_ratio")
 CATEGORICAL = ("relatedness",)
-RELATEDNESS = ("同じ事業", "近い事業", "遠い事業")
+# 候補の CSV に書く事業の似かたと、台帳の分類（relatedness）の対応
+RELATEDNESS = {"同じ事業": "同じ事業", "似た事業": "近い事業", "似ていない事業": "遠い事業"}
 GROUPS = 5
 # scikit-learn には型の情報が無いので、境目で Any として扱う
 sk_compose: Any = importlib.import_module("sklearn.compose")
@@ -61,7 +62,7 @@ def deal_inputs(
     if not 0 <= equity_ratio <= 1:
         raise ValueError("自己資本比率は0から1の間にする")
     if relatedness not in RELATEDNESS:
-        raise ValueError(f"事業の近さは {'・'.join(RELATEDNESS)} のどれかにする")
+        raise ValueError(f"事業の似かたは {'・'.join(RELATEDNESS)} のどれかにする")
     goodwill_ratio = max(0.0, (price - target_net_assets) / price)
     if goodwill_ratio > MAX_GOODWILL_RATIO:
         raise ValueError(f"上乗せ率が {MAX_GOODWILL_RATIO} を超える候補は、学習した範囲の外になる")
@@ -69,7 +70,7 @@ def deal_inputs(
         "goodwill_ratio": goodwill_ratio,
         "log_size_ratio": math.log(price / acquirer_assets),
         "equity_ratio": equity_ratio,
-        "relatedness": relatedness,
+        "relatedness": RELATEDNESS[relatedness],
     }
 
 
