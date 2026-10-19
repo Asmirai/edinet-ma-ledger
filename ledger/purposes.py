@@ -30,7 +30,8 @@ PURPOSES = (
     "再建・救済",
     "その他",
 )
-RELATEDNESS = ("同じ事業", "近い事業", "遠い事業")
+# 指示（purpose_instructions.md）で分類させた名前と、記事と公開用の CSV で使う業種の関係の名前の対応
+RELATEDNESS = {"同じ事業": "同業種", "近い事業": "関連業種", "遠い事業": "異業種"}
 # 成否を付けられるのは、買収後3期の有報がそろう年まで
 LAST_BASE_YEAR = 2022
 EXCERPT_LENGTH = 300
@@ -96,13 +97,16 @@ def purpose_items(
 
 
 def read_purposes(out_dir: Path) -> dict[str, tuple[str, str]]:
-    """読み取らせた（目的、近さ）を案件ごとに読む。一覧に無い値があれば止める。"""
+    """読み取らせた（目的、業種の関係）を案件ごとに読む。一覧に無い値があれば止める。
+
+    業種の関係は、同業種・関連業種・異業種の名前に読み替える。
+    """
     purposes: dict[str, tuple[str, str]] = {}
     for result in read_outputs(out_dir):
         purpose, relatedness = str(result["purpose"]), str(result["relatedness"])
         if purpose not in PURPOSES or relatedness not in RELATEDNESS:
             raise ValueError(f"{result['key']} の分類が一覧に無い：{purpose}・{relatedness}")
-        purposes[str(result["key"])] = (purpose, relatedness)
+        purposes[str(result["key"])] = (purpose, RELATEDNESS[relatedness])
     return purposes
 
 

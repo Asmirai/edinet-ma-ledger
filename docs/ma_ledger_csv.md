@@ -23,7 +23,8 @@
 | legal_form・voting_ratio | 法的形式と、取得後の議決権比率（注記の記載のまま） |
 | consideration_yen・goodwill_yen・assets_total_yen | 取得原価・のれん・受け入れた資産の合計（円に換算） |
 | size_ratio | 取得原価 ÷ 買い手の買収前の期の総資産 |
-| purpose・relatedness | 買収の目的と、買い手の事業との近さ（注記の「企業結合を行った主な理由」を AI で分類）。primary が True で、base_year が2022年までの行だけに付ける。ほかは空 |
+| acquirer_equity_ratio | 買い手の自己資本比率（買収の直前の期の有価証券報告書から読んだ値）。primary が True の行に付ける。直前の期の有価証券報告書が手元に無い行は空 |
+| purpose・relatedness | 買収の目的と、買い手との業種の関係（同業種・関連業種・異業種）。注記の「企業結合を行った主な理由」を AI で分類した。primary が True で、base_year が2022年までの行だけに付ける。ほかは空 |
 | base_year | 企業結合日を含む事業年度の決算日の年 |
 | delta_roa | 買い手の ROA の変化（買収後3期の平均 − 買収前の期） |
 | roa_beat_peers | 買収前の ROA が同じ水準の上場会社より ROA が伸びたら True。総資産の10%未満の買収では、買収の影響はほとんど表れない |

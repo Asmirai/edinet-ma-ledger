@@ -97,7 +97,7 @@ def deal_table(
 def risk_count(deal: dict[str, Any]) -> int | None:
     """減損が多かった4つの特徴のうち、いくつ当てはまるか。どれかが分からなければ None。
 
-    のれんの割合が84%以上、遠い事業、買い手の自己資本比率が65%以上、取得原価が総資産の5%以上。
+    のれんの割合が84%以上、異業種、買い手の自己資本比率が65%以上、取得原価が総資産の5%以上。
     """
     values = (deal["goodwill_ratio"], deal["relatedness"], deal["equity_ratio"], deal["size_ratio"])
     if any(value is None for value in values):
@@ -105,7 +105,7 @@ def risk_count(deal: dict[str, Any]) -> int | None:
     return sum(
         (
             deal["goodwill_ratio"] >= HIGH_GOODWILL_RATIO,
-            deal["relatedness"] == "遠い事業",
+            deal["relatedness"] == "異業種",
             deal["equity_ratio"] >= HIGH_EQUITY_RATIO,
             deal["size_ratio"] >= LARGE_DEAL,
         )
@@ -129,12 +129,12 @@ def load_deals() -> list[dict[str, Any]]:
         read_industries(INDUSTRIES_DIR),
         read_purposes(PURPOSES_DIR),
         impairments,
-        _profiles(rows),
+        acquirer_profiles(rows),
         _bases(),
     )
 
 
-def _profiles(rows: list[dict[str, str]]) -> dict[str, dict[str, float | None]]:
+def acquirer_profiles(rows: list[dict[str, str]]) -> dict[str, dict[str, float | None]]:
     """案件ごとに、買い手の買収直前の期（基準の年の前年が決算日の年）の有報から財務を読む。読んだ値は残す。"""
     saved: dict[str, dict[str, float | None]] = {}
     if PROFILES_PATH.exists():

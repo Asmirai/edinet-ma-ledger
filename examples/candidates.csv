@@ -1,0 +1,5 @@
+name,price,target_net_assets,acquirer_assets,equity_ratio,relatedness
+B社,15,12,500,0.55,同業種
+C社,20,6,500,0.55,関連業種
+D社,30,3,500,0.55,異業種
+E社,40,2,500,0.55,同業種
