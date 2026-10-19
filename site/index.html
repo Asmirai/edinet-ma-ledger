@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>M&amp;A 失敗確率シミュレーター | edinet-ma-ledger</title>
+    <meta
+      name="description"
+      content="上場企業の買収1,719件で学習したモデルが、買収から3年以内にのれんを減損する確率を見積もります。"
+    />
+    <meta property="og:title" content="M&amp;A 失敗確率シミュレーター" />
+    <meta
+      property="og:description"
+      content="買う前に分かる4つの数字から、買収から3年以内にのれんを減損する確率を見積もります。"
+    />
+    <meta property="og:image" content="https://asmirai.github.io/edinet-ma-ledger/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <header class="page-header">
+      <p class="eyebrow">edinet-ma-ledger</p>
+      <h1>M&amp;A 失敗確率シミュレーター</h1>
+      <p class="lead">
+        上場企業の買収 <span data-site="n">1,719</span> 件で学習したモデルが、買収から3年以内にのれんを減損する（払いすぎを認めて損失にする）確率を見積もります。入れた数字は、このブラウザの中だけで計算します。
+      </p>
+      <nav class="links">
+        <a href="https://qiita.com/ykuchiki/items/18d31329d81581d56a61">記事（Qiita）</a>
+        <a href="https://github.com/Asmirai/edinet-ma-ledger">GitHub</a>
+        <a href="https://github.com/Asmirai/edinet-ma-ledger/blob/main/docs/model_card.md">モデルカード</a>
+      </nav>
+    </header>
+
+    <main class="layout">
+      <section class="card inputs" aria-labelledby="inputs-title">
+        <h2 id="inputs-title">数字を入れる</h2>
+
+        <div class="presets" role="group" aria-label="記事の例を読み込む">
+          <span class="presets-label">記事の例</span>
+          <button type="button" data-preset="B社">B社（同業種）</button>
+          <button type="button" data-preset="C社">C社（関連業種）</button>
+          <button type="button" data-preset="E社">E社（同業種・高値）</button>
+          <button type="button" data-preset="D社">D社（異業種）</button>
+        </div>
+
+        <fieldset>
+          <legend>自社</legend>
+          <label class="field">
+            <span>総資産</span>
+            <span class="with-unit"><input id="acquirer-assets" type="number" min="0" step="any" value="500" /><span>億円</span></span>
+          </label>
+          <label class="field">
+            <span>自己資本比率 <output id="equity-ratio-value">55</output>%</span>
+            <input id="equity-ratio" type="range" min="0" max="100" step="1" value="55" />
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>買収の候補</legend>
+          <label class="field">
+            <span>想定の買収額</span>
+            <span class="with-unit"><input id="price" type="number" min="0" step="any" value="20" /><span>億円</span></span>
+          </label>
+          <label class="field">
+            <span>相手の純資産（資産から負債を引いた額。一部だけ買うなら、取得する持分の割合を掛けた額）</span>
+            <span class="with-unit"><input id="target-net-assets" type="number" step="any" value="6" /><span>億円</span></span>
+          </label>
+          <div class="field">
+            <span id="relatedness-label">業種の関係</span>
+            <div class="segmented" role="radiogroup" aria-labelledby="relatedness-label">
+              <label><input type="radio" name="relatedness" value="同業種" /><span>同業種</span></label>
+              <label><input type="radio" name="relatedness" value="関連業種" checked /><span>関連業種</span></label>
+              <label><input type="radio" name="relatedness" value="異業種" /><span>異業種</span></label>
+            </div>
+          </div>
+        </fieldset>
+      </section>
+
+      <section class="card result" aria-labelledby="result-title" aria-live="polite">
+        <h2 id="result-title">3年以内にのれんを減損する確率</h2>
+        <p class="probability" id="probability">—</p>
+        <p class="comparison" id="comparison"></p>
+        <p class="error" id="error" hidden></p>
+        <dl class="derived">
+          <div><dt>上乗せ率</dt><dd id="goodwill-ratio">—</dd></div>
+          <div><dt>自社に対する大きさ</dt><dd id="size-ratio">—</dd></div>
+          <div><dt>過去の平均</dt><dd id="base-rate">—</dd></div>
+        </dl>
+        <div class="track">
+          <h3>このモデルの当たり具合</h3>
+          <p>
+            AI を作るのに使っていない2020年度以降の <span data-site="holdout-n">869</span> 件を、見積もりの低い順に5等分したときの、実際の失敗率です。
+          </p>
+          <div class="bars" id="track-bars"></div>
+        </div>
+      </section>
+
+      <section class="card chart" aria-labelledby="chart-title">
+        <h2 id="chart-title">買収額だけを変えたとき</h2>
+        <p class="chart-summary" id="chart-summary"></p>
+        <svg id="curve" viewBox="0 0 640 300" role="img" aria-labelledby="chart-title chart-summary"></svg>
+      </section>
+
+      <section class="card notes" aria-labelledby="notes-title">
+        <h2 id="notes-title">この確率の読み方</h2>
+        <ul>
+          <li>過去の似た買収のうち、3年以内にのれんを減損したものの割合の見積もりです。相手の事業の将来性や、買収後の統合の計画は入っていません。</li>
+          <li>候補を順に並べる材料として使ってください。値そのものは、危ない候補ほど実際より低めに出ます（2020年度以降の確かめで、最も危ない20%の群は、見積もりの平均が <span data-site="top-mean">20%</span>、実際の失敗率が <span data-site="top-rate">30%</span>）。</li>
+          <li>学習に使っていない2020年度以降の買収で確かめた AUC は <span data-site="auc">0.69</span> です（0.5で当てずっぽう、1で全問正解）。</li>
+          <li>原因とまでは言えません。上乗せ率が高い買収は、もともと難しい案件なのかもしれません。</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <p>
+        出典：EDINET閲覧（提出）サイト、公共データ利用規約（第1.0版）。合同会社Asmirai が、有価証券報告書から AI を使って買収の記載を抜き出し、加工したものです。国が作成した情報そのものではありません。
+      </p>
+      <p>コードは MIT ライセンスです。© 合同会社Asmirai</p>
+    </footer>
+  </body>
+</html>
