@@ -31,6 +31,9 @@ pythonpath = ["."]
 typeCheckingMode = "strict"
 pythonVersion = "3.12"
 include = ["."]
+# ノートブックは説明のための実行例なので、strict の型チェックから外す（ruff の検査は続ける）。
+# exclude を書くと既定の除外が消えるので、隠しフォルダと __pycache__ も並べる
+exclude = ["notebooks", "**/.*", "**/__pycache__"]
 
 [tool.ruff]
 line-length = 100
