@@ -7,6 +7,7 @@
 使い方：uv run python -m ledger.acquisitions
 """
 
+import argparse
 import csv
 import html
 import json
@@ -159,6 +160,9 @@ def load_records(claude_deals_dir: Path, notes_dir: Path) -> list[dict[str, Any]
 
 
 def main() -> None:
+    argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    ).parse_args()
     records = load_records(CLAUDE_DEALS_DIR, NOTES_DIR)
     rows = merge_acquisitions(records)
     # Excel で開いても文字化けしないように BOM を付ける

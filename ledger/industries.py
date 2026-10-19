@@ -8,8 +8,8 @@
   （in/chunk_*.jsonl を1つずつサブエージェントに渡し、industry_instructions.md の指示で out/chunk_*.json に書かせる）
 """
 
+import argparse
 import csv
-import sys
 from pathlib import Path
 from typing import Any, cast
 
@@ -61,9 +61,14 @@ def read_industries(out_dir: Path) -> dict[str, str | None]:
 
 
 def main() -> None:
-    command, out_dir = sys.argv[1], Path(sys.argv[2])
-    if command != "split":
-        raise SystemExit(f"知らないコマンド：{command}（split）")
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser(
+        "split", help="成否を付けた主の行の「事業の内容」を、サブエージェントに渡す入力に分ける"
+    ).add_argument("out_dir", type=Path)
+    out_dir: Path = parser.parse_args().out_dir
     with LABELED_PATH.open(encoding="utf-8-sig", newline="") as file:
         rows = list(csv.DictReader(file))
     labeled: list[dict[str, Any]] = [

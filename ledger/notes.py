@@ -94,7 +94,9 @@ def annual_reports(lists_dir: Path, start: date, end: date) -> list[dict[str, An
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("start", type=date.fromisoformat)
     parser.add_argument("end", type=date.fromisoformat)
     args = parser.parse_args()

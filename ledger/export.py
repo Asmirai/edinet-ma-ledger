@@ -5,6 +5,7 @@
 使い方：uv run python -m ledger.export
 """
 
+import argparse
 import csv
 
 from ledger.dataset import PURPOSES_DIR, acquirer_profiles
@@ -62,6 +63,9 @@ def public_rows(
 
 
 def main() -> None:
+    argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    ).parse_args()
     with LABELED_PATH.open(encoding="utf-8-sig", newline="") as file:
         ledger_rows = list(csv.DictReader(file))
     with IMPAIRMENTS_PATH.open(encoding="utf-8-sig", newline="") as file:

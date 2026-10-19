@@ -8,8 +8,8 @@
   （in/chunk_*.jsonl を1つずつサブエージェントに渡し、purpose_instructions.md の指示で out/chunk_*.json に書かせる）
 """
 
+import argparse
 import csv
-import sys
 import unicodedata
 from collections import defaultdict
 from pathlib import Path
@@ -106,9 +106,14 @@ def read_purposes(out_dir: Path) -> dict[str, tuple[Purpose, Relatedness]]:
 
 
 def main() -> None:
-    command, out_dir = sys.argv[1], Path(sys.argv[2])
-    if command != "split":
-        raise SystemExit(f"知らないコマンド：{command}（split）")
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser(
+        "split", help="買収の「主な理由」を、サブエージェントに渡す入力に分ける"
+    ).add_argument("out_dir", type=Path)
+    out_dir: Path = parser.parse_args().out_dir
     texts_by_doc: defaultdict[str, list[str]] = defaultdict(list)
     for year_dir in year_dirs(CLAUDE_DEALS_DIR):
         for source, _ in read_chunks(year_dir):

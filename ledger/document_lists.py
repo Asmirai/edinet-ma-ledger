@@ -52,7 +52,9 @@ def count_annual_reports_by_month(lists_dir: Path) -> dict[str, int]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("start", type=date.fromisoformat)
     parser.add_argument("end", type=date.fromisoformat)
     args = parser.parse_args()

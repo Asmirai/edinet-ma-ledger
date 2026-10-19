@@ -10,11 +10,11 @@
   uv run python -m ledger.impairments label data/impairments
 """
 
+import argparse
 import csv
 import html
 import io
 import json
-import sys
 import unicodedata
 import zipfile
 from collections import defaultdict
@@ -163,17 +163,26 @@ def _deals_and_reports() -> tuple[list[dict[str, Any]], dict[str, list[tuple[dat
 
 
 def main() -> None:
-    command, out_dir = sys.argv[1], Path(sys.argv[2])
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser(
+        "split", help="減損の候補を拾い、サブエージェントに渡す入力に分ける"
+    ).add_argument("out_dir", type=Path)
+    commands.add_parser(
+        "label", help="サブエージェントの出力から、減損したかを案件ごとに書く"
+    ).add_argument("out_dir", type=Path)
+    args = parser.parse_args()
+    out_dir: Path = args.out_dir
     deals, reports = _deals_and_reports()
-    if command == "split":
+    if args.command == "split":
         items = candidate_items(
             deals, reports, lambda doc_id: (DOCUMENTS_DIR / f"{doc_id}.zip").read_bytes()
         )
         write_chunks(items, out_dir, CHUNK_SIZE)
         print(f"のれんが生じた案件 {len(deals)} 件のうち、減損の候補 {len(items)} 件")
         return
-    if command != "label":
-        raise SystemExit(f"知らないコマンド：{command}（split か label）")
     labels = label_impairments(deals, reports, read_impairments(out_dir))
     with IMPAIRMENTS_PATH.open("w", encoding="utf-8-sig", newline="") as file:
         writer = csv.writer(file)
