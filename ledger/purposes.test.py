@@ -65,3 +65,17 @@ def 分類の一覧に無い値が出力にあれば止める(tmp_path: Path) ->
 
     with pytest.raises(ValueError, match="なんとなく"):
         read_purposes(tmp_path)
+
+
+def 分類させた業種の関係を記事とCSVの名前に読み替える(tmp_path: Path) -> None:
+    write_chunks([{"key": "1-E1"}, {"key": "2-E1"}, {"key": "3-E1"}], tmp_path, 200)
+    (tmp_path / "out" / "chunk_000.json").write_text(
+        '[{"key": "1-E1", "purpose": "同じ事業の拡大", "relatedness": "同じ事業"},'
+        ' {"key": "2-E1", "purpose": "同じ事業の拡大", "relatedness": "近い事業"},'
+        ' {"key": "3-E1", "purpose": "新しい事業への参入", "relatedness": "遠い事業"}]',
+        encoding="utf-8",
+    )
+
+    purposes = read_purposes(tmp_path)
+
+    assert [purposes[k][1] for k in ("1-E1", "2-E1", "3-E1")] == ["同業種", "関連業種", "異業種"]

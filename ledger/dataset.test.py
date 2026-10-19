@@ -35,7 +35,7 @@ def 案件ごとに列と2つの物差しをまとめる() -> None:
         _row("3", base_year="2024"),
         _row("4", primary="False"),
     ]
-    purposes = {"1-E1": ("同じ事業の拡大", "同じ事業")}
+    purposes = {"1-E1": ("同じ事業の拡大", "同業種")}
     profiles: dict[str, dict[str, float | None]] = {
         "1-E1": {"sales_growth": 0.1, "equity_ratio": 0.5, "cash_ratio": 0.2, "ocf_ratio": 0.05}
     }
@@ -70,11 +70,11 @@ def 大きい買収の境目は総資産の10パーセント() -> None:
 def 危険信号の数を数える() -> None:
     deal: dict[str, Any] = {
         "goodwill_ratio": 0.9,
-        "relatedness": "遠い事業",
+        "relatedness": "異業種",
         "equity_ratio": 0.3,
         "size_ratio": 0.06,
     }
 
     assert risk_count(deal) == 3
-    assert risk_count(deal | {"goodwill_ratio": 0.5, "relatedness": "同じ事業"}) == 1
+    assert risk_count(deal | {"goodwill_ratio": 0.5, "relatedness": "同業種"}) == 1
     assert risk_count(deal | {"equity_ratio": None}) is None
