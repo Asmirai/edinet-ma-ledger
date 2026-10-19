@@ -350,14 +350,15 @@ def _bases() -> dict[str, str]:
     return bases
 
 
-def main() -> None:
+def load_deals() -> list[dict[str, Any]]:
+    """data の下の台帳・減損・目的・業種・買い手の財務から、deal_table の行を作る。"""
     with LABELED_PATH.open(encoding="utf-8-sig", newline="") as file:
         rows = list(csv.DictReader(file))
     with IMPAIRMENTS_PATH.open(encoding="utf-8-sig", newline="") as file:
         impairments = {
             r["key"]: r["impaired"] == "True" for r in csv.DictReader(file) if r["impaired"]
         }
-    deals = deal_table(
+    return deal_table(
         rows,
         read_industries(INDUSTRIES_DIR),
         read_purposes(PURPOSES_DIR),
@@ -365,6 +366,10 @@ def main() -> None:
         _profiles(rows),
         _bases(),
     )
+
+
+def main() -> None:
+    deals = load_deals()
     impaired_deals = [d for d in deals if d["impaired"] is not None]
     big_deals = [d for d in deals if d["roa_success"] is not None]
     lines = [

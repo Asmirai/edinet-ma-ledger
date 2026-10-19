@@ -17,6 +17,9 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.17.0",
 ]
+figures = [
+    "matplotlib>=3.11.2",
+]
 
 [tool.pytest.ini_options]
 # テストは対象と同じディレクトリの *.test.py に置き、関数名は日本語にする（AGENTS.md）。集め方は conftest.py
