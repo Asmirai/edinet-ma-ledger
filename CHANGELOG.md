@@ -21,7 +21,10 @@
 - 4つの変数（上乗せ率、買収額÷自社の総資産、自社の自己資本比率、業種の関係）で、のれんを減損する確率を出すモデル（`ledger/scorer.py`）と、記事の図を作るスクリプト（#27）
 - 公開 CSV に、買い手の自己資本比率の列（`acquirer_equity_ratio`）と、記事の候補4社の例（`examples/candidates.csv`）（#36）
 - CI（ruff・basedpyright・pytest）（#37）
-- 参加のしかた（CONTRIBUTING.md）、セキュリティ（SECURITY.md）、引用の情報（CITATION.cff）、この変更の記録、issue と PR のテンプレート、Dependabot、モデルカード、決めたことの記録（#38）
+- 参加のしかた（CONTRIBUTING.md）、セキュリティ（SECURITY.md）、引用の情報（CITATION.cff）、この変更の記録、issue と PR のテンプレート、Dependabot、モデルカード、決めたことの記録（#40）
+- ブラウザで動く失敗確率のシミュレーター（`site/`）を GitHub Pages に公開した。確率が Python と一致することを Node のテストで確かめる（#45、#46）
+- 公開 CSV から EDA・モデル・検証までをたどるノートブック（`notebooks/quickstart.ipynb`）。Colab で開ける（#47）
+- 作業する人と AI エージェント向けの決まり（AGENTS.md）、テストのカバレッジの計測（80%を下回ると CI が落ちる）、README の図と画面（#38）
 
 ### 変更
 
@@ -33,7 +36,10 @@
 - 業種の関係の名前を、同業種・関連業種・異業種にした（#32、#33）
 - 共通の関数を本来の置き場に移し、台帳の組み立てを `ledger/dataset.py`、列の作り方を `ledger/features.py` に分けた。出力は変えていない（#35）
 - 予測モデルと図を、公開 CSV だけから作るようにした。Release の CSV を取れば、EDINET の書類が無くても動く（#36）
-- README を、記事から来た人が試せる入口に作り直した（#37）
+- README を、記事から来た人が試せる入口に作り直した（#37）。シミュレーター・ノートブック・コマンドの3つの試し方、結果の図、ドキュメントの一覧、よくある質問を足した（#38）
+- 各コマンドの `main` を、引数とファイルの読み書きだけにした。公開台帳の置き場所・列・値の種類を `ledger/public.py` に集め、値の種類を `Literal` で表した。出力は変えていない（#39）
+- どのコマンドも argparse で引数を読み、`--help` を出すようにした（#41）
+- 依存の更新：ruff 0.17.1、actions/checkout 7、astral-sh/setup-uv 7（#42、#43、#44）
 
 ### 削除
 
