@@ -104,7 +104,7 @@ def holdout_groups(deals: list[dict[str, Any]], path: Path) -> None:
     ratio = groups[-1]["rate"] / groups[0]["rate"]
     fig = _figure(
         f"買う前の4つの数字だけで、失敗率に約{round(ratio)}倍の差がついた",
-        f"{LAST_TRAIN_YEAR}年度までの買収で作ったモデルを、作るときに使っていない"
+        f"{LAST_TRAIN_YEAR}年度までの買収で作ったモデルを、重みを決めるときに使っていない"
         f"{LAST_TRAIN_YEAR + 1}〜{LAST_BASE_YEAR}年度の{result['n']}件で試した",
         "失敗＝買収から3年以内に、払いすぎを認めて損失にしたもの（のれんの減損）。",
     )
@@ -450,7 +450,7 @@ def curve(deals: list[dict[str, Any]], path: Path) -> None:
     limit = next(p for p, v in zip(prices, values) if v > base)
     shown = [(p, v) for p, v in zip(prices, values) if p <= limit * 2.2]
     fig = _figure(
-        f"{candidate['name']}を{limit:.0f}億円より高く買うと、似た過去の買収の失敗率は平均を上回る",
+        f"{candidate['name']}を{limit:.0f}億円より高く買うと、失敗の見積もりが過去の平均を上回る",
         f"{candidate['name']}（純資産{candidate['target_net_assets']:.0f}億円、{candidate['label']}）の"
         "買収額だけを変えて、モデルに入れたときの失敗の確率",
         "買収額が上がると、上乗せ率と、自社に対する大きさの両方が上がる。",
