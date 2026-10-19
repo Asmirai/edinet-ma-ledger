@@ -155,12 +155,11 @@ def 学習の年の後の案件を危ない順に5つに分けて失敗率を出
 
 def 学習の年までを学習に使い次の年からを確かめに使う() -> None:
     deals = _synthetic(900)
-    tested = sum(1 for d in deals if d["base_year"] >= 2020)
 
-    assert holdout(deals, last_train_year=2019)["n"] == tested
-    assert holdout(deals, last_train_year=2020)["n"] == tested - sum(
-        1 for d in deals if d["base_year"] == 2020
-    )
+    result = holdout(deals, last_train_year=2019)
+
+    assert result["train_n"] == sum(1 for d in deals if d["base_year"] <= 2019)
+    assert result["n"] == sum(1 for d in deals if d["base_year"] >= 2020)
 
 
 def 買収額を上げるほど確率が上がる() -> None:
