@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 脆弱性の報告
+    url: https://github.com/Asmirai/edinet-ma-ledger/security/advisories/new
+    about: 脆弱性は issue に書かず、こちらから非公開で報告してください（SECURITY.md）。
+  - name: 記事への質問・感想
+    url: https://qiita.com/ykuchiki/items/18d31329d81581d56a61
+    about: 分析の内容への質問は、Qiita の記事のコメントでも受け付けます。

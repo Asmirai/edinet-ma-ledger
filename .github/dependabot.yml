@@ -1,0 +1,11 @@
+# GitHub Actions と Python の依存（uv.lock）の更新を、週に1回 PR にする
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
