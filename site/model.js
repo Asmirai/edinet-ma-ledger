@@ -1,7 +1,11 @@
-// 失敗確率の計算。ledger/scorer.py の deal_inputs と probability_from_export と同じ式で計算する。
+// 失敗確率の計算。ledger/scorer.py の deal_inputs と、export_model が書き出す係数を使った
+// ロジスティック回帰の式（scorer.test.py の _probability_from_export と同じ）で計算する。
 // 画面（app.js）から切り離し、Node のテスト（model.test.mjs）で Python の結果と突き合わせる。
 
 export const RELATEDNESS = ["同業種", "関連業種", "異業種"];
+
+/** 上乗せ率が学習した範囲の外にあるときの誤り。曲線では、その買収額を描かずに飛ばす。 */
+export class OutOfRangeError extends Error {}
 
 /**
  * 候補の数字を、モデルに入れる4つの列にする。使えない数字なら Error を投げる。
@@ -22,7 +26,7 @@ export function dealInputs(
   }
   const goodwillRatio = Math.max(0, (price - targetNetAssets) / price);
   if (goodwillRatio > maxGoodwillRatio) {
-    throw new Error(
+    throw new OutOfRangeError(
       `上乗せ率が${Math.round(maxGoodwillRatio * 100)}%を超えると、学習した範囲の外になります`,
     );
   }
@@ -45,7 +49,7 @@ export function probability(model, inputs) {
 
 /**
  * 買収額だけを変えたときの確率。上乗せ率が上限を超える買収額は含めない。
- * 戻り値は { price, probability } の配列で、買収額の小さい順。
+ * 戻り値は { price, probability } の配列で、買収額の小さい順。ほかの数字が使えなければ Error を投げる。
  */
 export function priceCurve(site, deal, prices) {
   const points = [];
@@ -53,8 +57,8 @@ export function priceCurve(site, deal, prices) {
     try {
       const inputs = dealInputs({ ...deal, price }, site.max_goodwill_ratio);
       points.push({ price, probability: probability(site.model, inputs) });
-    } catch {
-      // 上限を超える買収額は描かない
+    } catch (problem) {
+      if (!(problem instanceof OutOfRangeError)) throw problem;
     }
   }
   return points;
