@@ -6,6 +6,7 @@ import pytest
 from ledger.predict import (
     CATEGORICAL,
     NUMERIC,
+    build_report,
     evaluate,
     fit_models,
     model_rows,
@@ -111,3 +112,13 @@ def 三つのモデルを学習して確かめの物差しを並べる() -> None
     assert results["全件の成功率"]["auc"] == pytest.approx(0.5)
     assert results["ロジスティック回帰"]["auc"] > 0.7
     assert results["勾配ブースティング"]["auc"] > 0.7
+
+
+def 学習と確かめの件数とモデルごとの物差しを表にする() -> None:
+    scores = {"auc": 0.512, "pr_auc": 0.431, "brier": 0.245, "base_rate": 0.4, "top10_rate": 0.42}
+
+    report = build_report(train_n=900, test_n=600, results={"ロジスティック回帰": scores})
+
+    assert "学習 900 件" in report
+    assert "確かめ 600 件" in report
+    assert "| ロジスティック回帰 | 0.512 | 0.431 | 0.245 | 40.0% | 42.0% |" in report

@@ -5,12 +5,14 @@ from typing import Any
 import pytest
 
 from ledger.scorer import (
+    build_report,
     complete_rows,
     deal_inputs,
     fit_scorer,
     holdout,
     predict,
     price_curve,
+    rank_candidates,
     read_candidates,
     read_ledger,
 )
@@ -66,23 +68,44 @@ def 上乗せ率が台帳で使った上限を超えたらValueErrorにする() 
         )
 
 
-def 使えない数字ならValueErrorにする() -> None:
-    valid: dict[str, Any] = {
-        "price": 10,
-        "target_net_assets": 5,
-        "acquirer_assets": 500,
-        "equity_ratio": 0.4,
-        "relatedness": "同業種",
-    }
-    invalid: list[dict[str, Any]] = [
-        {"price": 0},
-        {"acquirer_assets": 0},
-        {"equity_ratio": 1.2},
-        {"relatedness": "わからない"},
-    ]
-    for changes in invalid:
-        with pytest.raises(ValueError):
-            deal_inputs(**(valid | changes))
+def 買収額が0ならValueErrorにする() -> None:
+    with pytest.raises(ValueError, match="買収額"):
+        deal_inputs(
+            price=0,
+            target_net_assets=5,
+            acquirer_assets=500,
+            equity_ratio=0.4,
+            relatedness="同業種",
+        )
+
+
+def 自社の総資産が0ならValueErrorにする() -> None:
+    with pytest.raises(ValueError, match="総資産"):
+        deal_inputs(
+            price=10, target_net_assets=5, acquirer_assets=0, equity_ratio=0.4, relatedness="同業種"
+        )
+
+
+def 自己資本比率が1を超えたらValueErrorにする() -> None:
+    with pytest.raises(ValueError, match="自己資本比率"):
+        deal_inputs(
+            price=10,
+            target_net_assets=5,
+            acquirer_assets=500,
+            equity_ratio=1.2,
+            relatedness="同業種",
+        )
+
+
+def 業種の関係が一覧に無ければValueErrorにする() -> None:
+    with pytest.raises(ValueError, match="業種の関係"):
+        deal_inputs(
+            price=10,
+            target_net_assets=5,
+            acquirer_assets=500,
+            equity_ratio=0.4,
+            relatedness="わからない",
+        )
 
 
 def _deal(year: int, impaired: bool | None, **changes: Any) -> dict[str, Any]:
@@ -225,3 +248,50 @@ def 公開CSVから成否と4つの列がそろう行を読む(tmp_path: Any) ->
     assert rows[0]["log_size_ratio"] == pytest.approx(math.log(0.05))
     assert rows[0]["equity_ratio"] == pytest.approx(0.7)
     assert rows[0]["relatedness"] == "異業種"
+
+
+def 候補を失敗の確率の低い順に並べる() -> None:
+    model = fit_scorer(_synthetic(900))
+    candidates: list[dict[str, Any]] = [
+        {
+            "name": "危ない",
+            "inputs": deal_inputs(
+                price=10,
+                target_net_assets=0.5,
+                acquirer_assets=500,
+                equity_ratio=0.5,
+                relatedness="異業種",
+            ),
+        },
+        {
+            "name": "安全",
+            "inputs": deal_inputs(
+                price=10,
+                target_net_assets=9,
+                acquirer_assets=500,
+                equity_ratio=0.5,
+                relatedness="同業種",
+            ),
+        },
+    ]
+
+    ranked = rank_candidates(model, candidates)
+
+    assert [name for name, _ in ranked] == ["安全", "危ない"]
+    assert ranked[0][1] < ranked[1][1]
+
+
+def 確かめの結果を群ごとの表にする() -> None:
+    result: dict[str, Any] = {
+        "train_n": 850,
+        "n": 869,
+        "base_rate": 0.173,
+        "auc": 0.6874,
+        "groups": [{"n": 173, "rate": 0.029, "mean_probability": 0.075}],
+    }
+
+    report = build_report(result)
+
+    assert "2019年度までの 850 件で学習し、2020年度以降の 869 件で確かめた" in report
+    assert "AUC 0.687" in report
+    assert "| 1 | 173 | 2.9% | 7.5% |" in report

@@ -1,10 +1,17 @@
 import io
 import zipfile
 from datetime import date
+from typing import Any
 
 import pytest
 
-from ledger.roa import company_years, label_acquisitions, read_summary, roa_change
+from ledger.roa import (
+    company_years,
+    label_acquisitions,
+    read_summary,
+    roa_change,
+    years_by_company,
+)
 
 HEADER = [
     "要素ID",
@@ -231,3 +238,28 @@ def 買収前のROAと同業との差と買収前のROAでそろえた超過の�
     assert row["roa_before"] == pytest.approx(0.02)
     assert row["excess_roa_before"] == pytest.approx(0.02 - 0.06)
     assert row["matched_excess_delta_roa"] == pytest.approx(0.03 - 0.01)
+
+
+def 保存した財務を会社ごとに並べて期ごとの値にする() -> None:
+    saved: dict[str, dict[str, Any]] = {
+        "S1": {
+            "edinetCode": "E1",
+            "periodEnd": "2021-03-31",
+            "summary": {"0": [10, 100, "日本基準"], "1": [8, 90, "日本基準"]},
+        },
+        "S2": {
+            "edinetCode": "E1",
+            "periodEnd": "2022-03-31",
+            "summary": {"0": [12, 110, "日本基準"]},
+        },
+        "S3": {"edinetCode": "E2", "periodEnd": "2022-12-31", "summary": {"0": [5, 50, "IFRS"]}},
+    }
+
+    years = years_by_company(saved)
+
+    assert years["E1"] == {
+        date(2020, 3, 31): (8, 90, "日本基準"),
+        date(2021, 3, 31): (10, 100, "日本基準"),
+        date(2022, 3, 31): (12, 110, "日本基準"),
+    }
+    assert years["E2"] == {date(2022, 12, 31): (5, 50, "IFRS")}
