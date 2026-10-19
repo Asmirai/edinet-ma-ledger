@@ -25,7 +25,10 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run basedpyright
-      - run: uv run pytest -q
+      - run: uv run pytest -q --cov --cov-report=term
+      - name: カバレッジを実行の概要に書く
+        if: always()
+        run: uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
