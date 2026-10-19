@@ -36,7 +36,7 @@ uv run --env-file .env python -m ledger.notes 2024-10-01 2025-09-30
 
 ## 注記から買収案件を抜き出す
 
-台帳は、Claude Code のサブエージェントに注記を読ませて作った。手元の LLM（qwen3:8b）での抜き出しも残してあるが、こちらは比べるためのもので、台帳には使っていない。
+台帳は、Claude Code のサブエージェントに注記を読ませて作った。
 
 ### Claude Code のサブエージェントで抜き出す
 
@@ -87,14 +87,13 @@ uv run python -m ledger.roa
 - 決算期を変えた期、会計基準や連結・単体が変わった期をまたぐものは、理由を付けて空にする
 - 読んだ値は `data/financials.json` に残し、次からはまだ読んでいない有報だけを読む
 
-### 仮説を確かめる
+### 買われた会社の業種を分ける
 
 ```bash
 uv run python -m ledger.industries split data/industries
-uv run python -m ledger.hypotheses
 ```
 
-`industries split` は、成否を付けた主の行の「事業の内容」を150件ずつに分ける。各ファイルを Sonnet のサブエージェントに渡し、`ledger/industry_instructions.md` の指示で買われた会社を33業種に分けさせる。`hypotheses` は、同業・のれんの割合・買う会社の業績・買収前の収益性でそろえた比較の4つの仮説を確かめ、`data/hypotheses.md` に書く。
+成否を付けた主の行の「事業の内容」を150件ずつに分ける。各ファイルを Sonnet のサブエージェントに渡し、`ledger/industry_instructions.md` の指示で買われた会社を33業種に分けさせる。
 
 ### 成否を当てられるかを確かめる
 
@@ -124,15 +123,3 @@ uv run python -m ledger.export
 ```
 
 台帳と、分析で付けた値（のれんの減損、ROA の変化、買収の目的、事業の近さ）を `data/public/ma_ledger.csv` に書く。注記の文章そのものは入れない。
-
-### 手元の LLM で抜き出す
-
-```bash
-uv run python -m ledger.deals
-```
-
-`data/notes/` の注記から、手元の LLM（Ollama の qwen3:8b）で買収案件を抜き出し、`data/deals/{docID}.json` に保存する。Ollama を先に起動しておく。モデルと接続先は、環境変数 `OLLAMA_MODEL`・`OLLAMA_URL` で変えられる。
-
-抜き出しは二段に分ける。一段目で案件の一覧（名前・種類・期）を出させ、二段目で「取得」の案件ごとに、その案件の部分だけを渡して金額などを聞く。一度に全部を聞くと、長い注記で金額を取りこぼした。
-
-数値はモデルに作らせない。名称と金額は原文に載っているかを機械で照らし合わせ、載っていない項目を案件の `unverified` に記録する。前の期の記載が無い注記の「前期」の案件と、同じ名前・同じ期の2件目は、モデルの作り話として除く。

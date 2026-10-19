@@ -25,8 +25,8 @@ from typing import Any, cast
 
 from ledger.acquisitions import COMPANY_TYPES, FORMER_OR_CURRENT_NAME
 from ledger.chunks import read_outputs, write_chunks
+from ledger.features import legal_form_kind
 from ledger.notes import DOCUMENTS_DIR, NOTES_DIR, REPORT_CSV_PREFIX
-from ledger.predict import legal_form_kind
 from ledger.roa import LABELED_PATH
 
 IMPAIRMENTS_PATH = Path("data/impairments.csv")
