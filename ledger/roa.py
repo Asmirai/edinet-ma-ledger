@@ -122,6 +122,22 @@ def company_years(
     return years
 
 
+def years_by_company(
+    saved: dict[str, dict[str, Any]],
+) -> dict[str, dict[date, tuple[int, int, str]]]:
+    """保存した有報の財務（docID → 会社・決算日・5期分の値）を、会社ごとに company_years で期に並べる。"""
+    reports: defaultdict[str, list[tuple[date, dict[int, tuple[int, int, str]]]]] = defaultdict(
+        list
+    )
+    for report in saved.values():
+        values = cast(dict[str, list[Any]], report["summary"])
+        summary = {int(k): (int(v[0]), int(v[1]), str(v[2])) for k, v in values.items()}
+        reports[str(report["edinetCode"])].append(
+            (date.fromisoformat(str(report["periodEnd"])), summary)
+        )
+    return {code: company_years(found) for code, found in reports.items()}
+
+
 def roa_change(
     years: dict[date, tuple[int, int, str]], base_year: int
 ) -> tuple[float, float, tuple[float, float, float]] | str:
@@ -287,18 +303,6 @@ def main() -> None:
         }
     if unread:
         FINANCIALS_PATH.write_text(json.dumps(saved, ensure_ascii=False), encoding="utf-8")
-    reports_by_company: defaultdict[str, list[tuple[date, dict[int, tuple[int, int, str]]]]] = (
-        defaultdict(list)
-    )
-    for report in cast(list[dict[str, Any]], list(saved.values())):
-        values = cast(dict[str, list[Any]], report["summary"])
-        summary = {int(k): (int(v[0]), int(v[1]), str(v[2])) for k, v in values.items()}
-        reports_by_company[str(report["edinetCode"])].append(
-            (date.fromisoformat(str(report["periodEnd"])), summary)
-        )
-    years_by_company = {
-        code: company_years(reports) for code, reports in reports_by_company.items()
-    }
     # EDINET コードリスト。1行目は作成日などの説明、2行目が見出し
     with EDINET_CODES_PATH.open(encoding="cp932", newline="") as file:
         rows = list(csv.reader(file))[2:]
@@ -307,7 +311,7 @@ def main() -> None:
         acquisitions = list(csv.DictReader(file))
     for row in acquisitions:
         row["consideration_yen"] = row["consideration_yen"] or None
-    labeled = label_acquisitions(acquisitions, years_by_company, industries)
+    labeled = label_acquisitions(acquisitions, years_by_company(saved), industries)
     with LABELED_PATH.open("w", encoding="utf-8-sig", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=list(labeled[0]))
         writer.writeheader()

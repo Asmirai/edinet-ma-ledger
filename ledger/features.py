@@ -6,14 +6,13 @@ ledger.factors（要因ごとの集計）、ledger.predict（ROA の予測）、
 import re
 import unicodedata
 from datetime import date, timedelta
-from typing import Any
+from typing import Any, Literal
 
 from ledger.industries import INDUSTRIES
+from ledger.public import MAX_GOODWILL_RATIO
 
-# のれんは取得原価から受け入れた純資産を引いた額なので、債務超過の会社を買えば取得原価を超える。
-# それでも 1.5 倍を超えるものは、取得原価の単位（千円・百万円）の読み違いが多かった
-MAX_GOODWILL_RATIO = 1.5
 PRIOR_DAYS = 730
+LegalForm = Literal["合併", "株式交換", "事業譲受", "株式取得", "その他", "不明"]
 
 
 def _number(text: str) -> float | None:
@@ -50,7 +49,7 @@ def deal_features(row: dict[str, str], acquiree_industry: str | None) -> dict[st
     }
 
 
-def legal_form_kind(text: str) -> str:
+def legal_form_kind(text: str) -> LegalForm:
     """有報に書かれた法的形式を、合併・株式交換・事業譲受・株式取得・その他・不明にまとめる。"""
     if not text:
         return "不明"

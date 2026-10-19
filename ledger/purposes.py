@@ -13,27 +13,22 @@ import sys
 import unicodedata
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from ledger.acquisitions import CLAUDE_DEALS_DIR
 from ledger.chunks import read_outputs, write_chunks
 from ledger.claude_deals import read_chunks, year_dirs
 from ledger.impairments import core_name
+from ledger.public import LAST_BASE_YEAR, PURPOSES, Purpose, Relatedness
 from ledger.roa import LABELED_PATH
 
-PURPOSES = (
-    "同じ事業の拡大",
-    "新しい事業への参入",
-    "地域の拡大・海外進出",
-    "仕入れ・販売の取り込み",
-    "技術・人材の獲得",
-    "再建・救済",
-    "その他",
-)
+Consideration = Literal["現金", "株式", "現金と株式", "不明"]
 # 指示（purpose_instructions.md）で分類させた名前と、記事と公開用の CSV で使う業種の関係の名前の対応
-RELATEDNESS = {"同じ事業": "同業種", "近い事業": "関連業種", "遠い事業": "異業種"}
-# 成否を付けられるのは、買収後3期の有報がそろう年まで
-LAST_BASE_YEAR = 2022
+CLASSIFIED_RELATEDNESS: dict[str, Relatedness] = {
+    "同じ事業": "同業種",
+    "近い事業": "関連業種",
+    "遠い事業": "異業種",
+}
 EXCERPT_LENGTH = 300
 # 相手の名前から「主な理由」までは、事業の内容をはさんでも1,500字に収まっていた
 SEARCH_LENGTH = 1500
@@ -53,7 +48,7 @@ def reason_excerpt(note_text: str, name: str) -> str | None:
     return text[start : start + EXCERPT_LENGTH].strip()
 
 
-def consideration_kind(legal_form: str) -> str:
+def consideration_kind(legal_form: str) -> Consideration:
     """法的形式の書き方から、対価の種類（現金・株式・現金と株式・不明）を読む。"""
     cash = "現金" in legal_form
     stock = any(word in legal_form for word in ("株式交換", "株式を対価", "当社株式", "普通株式"))
@@ -96,17 +91,17 @@ def purpose_items(
     return items
 
 
-def read_purposes(out_dir: Path) -> dict[str, tuple[str, str]]:
+def read_purposes(out_dir: Path) -> dict[str, tuple[Purpose, Relatedness]]:
     """読み取らせた（目的、業種の関係）を案件ごとに読む。一覧に無い値があれば止める。
 
     業種の関係は、同業種・関連業種・異業種の名前に読み替える。
     """
-    purposes: dict[str, tuple[str, str]] = {}
+    purposes: dict[str, tuple[Purpose, Relatedness]] = {}
     for result in read_outputs(out_dir):
         purpose, relatedness = str(result["purpose"]), str(result["relatedness"])
-        if purpose not in PURPOSES or relatedness not in RELATEDNESS:
+        if purpose not in PURPOSES or relatedness not in CLASSIFIED_RELATEDNESS:
             raise ValueError(f"{result['key']} の分類が一覧に無い：{purpose}・{relatedness}")
-        purposes[str(result["key"])] = (purpose, RELATEDNESS[relatedness])
+        purposes[str(result["key"])] = (purpose, CLASSIFIED_RELATEDNESS[relatedness])
     return purposes
 
 

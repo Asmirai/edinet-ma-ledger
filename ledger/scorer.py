@@ -29,15 +29,12 @@ from typing import Any
 
 import pandas as pd
 
-from ledger.export import PUBLIC_PATH
-from ledger.features import MAX_GOODWILL_RATIO
-from ledger.purposes import LAST_BASE_YEAR
+from ledger.public import LAST_BASE_YEAR, MAX_GOODWILL_RATIO, PUBLIC_PATH, RELATEDNESS
 
 REPORT_PATH = Path("data/scorer.md")
 LAST_TRAIN_YEAR = 2019
 NUMERIC = ("goodwill_ratio", "log_size_ratio", "equity_ratio")
 CATEGORICAL = ("relatedness",)
-RELATEDNESS = ("同業種", "関連業種", "異業種")
 RELEASE_URL = "https://github.com/Asmirai/edinet-ma-ledger/releases/latest/download/ma_ledger.csv"
 GROUPS = 5
 # scikit-learn には型の情報が無いので、境目で Any として扱う
@@ -217,20 +214,16 @@ def read_candidates(path: Path) -> list[dict[str, Any]]:
         ]
 
 
-def main() -> None:
-    if not PUBLIC_PATH.exists():
-        raise SystemExit(
-            f"{PUBLIC_PATH} がありません。次の URL から台帳の CSV を取って置いてください：{RELEASE_URL}"
-        )
-    deals = read_ledger(PUBLIC_PATH)
-    if len(sys.argv) > 1:
-        candidates = read_candidates(Path(sys.argv[1]))
-        model = fit_scorer(deals)
-        scored = zip(predict(model, [c["inputs"] for c in candidates]), candidates)
-        for probability, candidate in sorted(scored, key=lambda pair: pair[0]):
-            print(f"{candidate['name']}\t{probability:.1%}")
-        return
-    result = holdout(deals, LAST_TRAIN_YEAR)
+def rank_candidates(model: Any, candidates: list[dict[str, Any]]) -> list[tuple[str, float]]:
+    """候補の（名前、失敗の確率）を、確率の低い順に並べる。"""
+    probabilities = predict(model, [c["inputs"] for c in candidates])
+    return sorted(
+        ((c["name"], p) for c, p in zip(candidates, probabilities)), key=lambda pair: pair[1]
+    )
+
+
+def build_report(result: dict[str, Any]) -> str:
+    """holdout の結果を Markdown にする。"""
     lines = [
         "# 4つの数字で、のれんの減損を当てる",
         "",
@@ -248,8 +241,23 @@ def main() -> None:
         f"| {i + 1} | {g['n']} | {g['rate']:.1%} | {g['mean_probability']:.1%} |"
         for i, g in enumerate(result["groups"])
     ]
-    REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(REPORT_PATH.read_text(encoding="utf-8"))
+    return "\n".join(lines) + "\n"
+
+
+def main() -> None:
+    if not PUBLIC_PATH.exists():
+        raise SystemExit(
+            f"{PUBLIC_PATH} がありません。次の URL から台帳の CSV を取って置いてください：{RELEASE_URL}"
+        )
+    deals = read_ledger(PUBLIC_PATH)
+    if len(sys.argv) > 1:
+        ranked = rank_candidates(fit_scorer(deals), read_candidates(Path(sys.argv[1])))
+        for name, probability in ranked:
+            print(f"{name}\t{probability:.1%}")
+        return
+    report = build_report(holdout(deals, LAST_TRAIN_YEAR))
+    REPORT_PATH.write_text(report, encoding="utf-8")
+    print(report)
 
 
 if __name__ == "__main__":
