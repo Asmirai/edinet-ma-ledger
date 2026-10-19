@@ -15,9 +15,13 @@ from ledger.scorer import (
 )
 
 
-def 候補の数字を4つの列にする() -> None:
+def 候補の数字を4つの列にし事業の似かたを台帳の分類に読み替える() -> None:
     inputs = deal_inputs(
-        price=50, target_net_assets=5, acquirer_assets=500, equity_ratio=0.7, relatedness="遠い事業"
+        price=50,
+        target_net_assets=5,
+        acquirer_assets=500,
+        equity_ratio=0.7,
+        relatedness="似ていない事業",
     )
 
     assert inputs["goodwill_ratio"] == pytest.approx(0.9)
@@ -134,7 +138,7 @@ def 危ない案件ほど高い確率を出す() -> None:
         target_net_assets=0.5,
         acquirer_assets=500,
         equity_ratio=0.5,
-        relatedness="遠い事業",
+        relatedness="似ていない事業",
     )
 
     low, high = predict(model, [safe, risky])
@@ -170,7 +174,7 @@ def 買収額を上げるほど確率が上がる() -> None:
         target_net_assets=5,
         acquirer_assets=500,
         equity_ratio=0.5,
-        relatedness="近い事業",
+        relatedness="似た事業",
         prices=[6, 10, 20, 40],
     )
 
@@ -182,8 +186,8 @@ def 自社と候補のCSVを読む(tmp_path: Any) -> None:
     path = tmp_path / "candidates.csv"
     path.write_text(
         "name,price,target_net_assets,acquirer_assets,equity_ratio,relatedness\n"
-        "B社,50,5,500,0.7,遠い事業\n"
-        "C社,10,8,500,0.7,同じ事業\n",
+        "B社,50,5,500,0.7,似ていない事業\n"
+        "C社,10,8,500,0.7,似た事業\n",
         encoding="utf-8",
     )
 
@@ -191,4 +195,4 @@ def 自社と候補のCSVを読む(tmp_path: Any) -> None:
 
     assert [c["name"] for c in candidates] == ["B社", "C社"]
     assert candidates[0]["inputs"]["goodwill_ratio"] == pytest.approx(0.9)
-    assert candidates[1]["inputs"]["relatedness"] == "同じ事業"
+    assert candidates[1]["inputs"]["relatedness"] == "近い事業"
