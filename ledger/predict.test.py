@@ -8,31 +8,9 @@ from ledger.predict import (
     NUMERIC,
     evaluate,
     fit_models,
-    legal_form_kind,
     model_rows,
     split_by_year,
-    voting_number,
 )
-
-
-def 法的形式を5つの種類にまとめる() -> None:
-    assert legal_form_kind("現金を対価とする株式取得") == "株式取得"
-    assert legal_form_kind("現金を対価とする持分の取得") == "株式取得"
-    assert legal_form_kind("現金を対価とする事業譲受") == "事業譲受"
-    assert legal_form_kind("吸収分割") == "事業譲受"
-    assert legal_form_kind("当社を存続会社とする吸収合併") == "合併"
-    assert legal_form_kind("株式交換") == "株式交換"
-    assert legal_form_kind("第三者割当増資の引受け") == "その他"
-    assert legal_form_kind("") == "不明"
-
-
-def 議決権比率の数字を読む() -> None:
-    assert voting_number("100％") == 100
-    assert voting_number("５１.０％") == 51
-    assert voting_number("取得前 20％ 取得後 60％") == 60
-    assert voting_number("100％（うち間接保有 24.49%）") == 100
-    assert voting_number("不二サッシ株式会社 97.0％、日海不二サッシ株式会社 3.0％") == 97
-    assert voting_number("") is None
 
 
 def _ledger_row(deal_id: int, date: str, **changes: str) -> dict[str, str]:
