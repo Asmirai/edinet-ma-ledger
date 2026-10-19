@@ -178,14 +178,6 @@ def export_model(model: Any) -> dict[str, Any]:
     }
 
 
-def probability_from_export(params: dict[str, Any], inputs: dict[str, Any]) -> float:
-    """export_model の係数から確率を計算する。ブラウザのシミュレーターと同じ式。"""
-    z = params["intercept"] + params["relatedness"].get(inputs["relatedness"], 0.0)
-    for name, spec in params["numeric"].items():
-        z += spec["coef"] * (inputs[name] - spec["mean"]) / spec["scale"]
-    return 1 / (1 + math.exp(-z))
-
-
 def build_site_model(deals: list[dict[str, Any]], examples: list[dict[str, Any]]) -> dict[str, Any]:
     """ブラウザのシミュレーターが読むモデル：係数、学習した件数と失敗率、上乗せ率の上限、
     学習に使っていない年で確かめた結果、例の候補の確率。
@@ -294,8 +286,9 @@ def build_report(result: dict[str, Any]) -> str:
         f"- {LAST_TRAIN_YEAR}年度までの {result['train_n']} 件で学習し、"
         f"{LAST_TRAIN_YEAR + 1}年度以降の {result['n']} 件で確かめた",
         f"- 確かめの案件の減損率 {result['base_rate']:.1%}、AUC {result['auc']:.3f}",
-        "- 4つの数字は全期間のデータを見て選んだ。2019年度までだけでも同じ向きの差が出る",
-        "- 学習に使った買収の成否は、2022年度までに出そろう。確かめの期間と重なる",
+        "- 4つの数字は全期間のデータを見て選んだ。"
+        f"{LAST_TRAIN_YEAR}年度までだけでも同じ向きの差が出る",
+        f"- 学習に使った買収の成否は、{LAST_TRAIN_YEAR + 3}年度までに出そろう。確かめの期間と重なる",
         "- 確率は実際より低めに出る（学習期間のほうが減損率が低い）。並べる順は使えるが、値は目安",
         "",
         "| 確率の低い順の群 | 件数 | 減損した割合 | 確率の平均 |",

@@ -15,7 +15,6 @@ from ledger.scorer import (
     holdout,
     predict,
     price_curve,
-    probability_from_export,
     rank_candidates,
     read_candidates,
     read_ledger,
@@ -338,7 +337,7 @@ def 書き出した係数から計算した確率がモデルの確率と一致�
     expected = predict(model, cases)
 
     for inputs, probability in zip(cases, expected):
-        assert probability_from_export(params, inputs) == pytest.approx(probability, abs=1e-12), (
+        assert _probability_from_export(params, inputs) == pytest.approx(probability, abs=1e-12), (
             inputs
         )
 
@@ -381,3 +380,11 @@ def ブラウザ向けのモデルに全体の失敗率と候補の例の確率�
         predict(model, [example["inputs"]])[0]
     )
     json.dumps(site, ensure_ascii=False)
+
+
+def _probability_from_export(params: dict[str, Any], inputs: dict[str, Any]) -> float:
+    """export_model の係数から確率を計算する。ブラウザのシミュレーター（site/model.js）と同じ式。"""
+    z = params["intercept"] + params["relatedness"].get(inputs["relatedness"], 0.0)
+    for name, spec in params["numeric"].items():
+        z += spec["coef"] * (inputs[name] - spec["mean"]) / spec["scale"]
+    return 1 / (1 + math.exp(-z))

@@ -20,13 +20,13 @@ from ledger.public import LAST_BASE_YEAR, PUBLIC_PATH
 from ledger.scorer import (
     LAST_TRAIN_YEAR,
     complete_rows,
+    deal_inputs,
     fit_scorer,
     holdout,
     predict,
     price_curve,
     read_ledger,
 )
-from ledger.scorer import deal_inputs as scorer_inputs
 
 # matplotlib の型の情報は一部しか無いので、境目で Any として扱う
 matplotlib: Any = importlib.import_module("matplotlib")
@@ -364,7 +364,7 @@ def confounding(deals: list[dict[str, Any]], path: Path) -> None:
 
 
 def _candidate_inputs(candidate: dict[str, Any]) -> dict[str, Any]:
-    return scorer_inputs(
+    return deal_inputs(
         candidate["price"],
         candidate["target_net_assets"],
         ACQUIRER["acquirer_assets"],
