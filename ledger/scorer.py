@@ -116,7 +116,8 @@ def holdout(deals: list[dict[str, Any]], last_train_year: int) -> dict[str, Any]
     確かめの案件をモデルの確率の低い順に5つに分け、群ごとの件数・失敗率・確率の平均を出す。
     """
     rows = complete_rows(deals)
-    model = fit_scorer([r for r in rows if r["base_year"] <= last_train_year])
+    train = [r for r in rows if r["base_year"] <= last_train_year]
+    model = fit_scorer(train)
     test = [r for r in rows if r["base_year"] > last_train_year]
     ranked = sorted(zip(predict(model, test), (bool(r["impaired"]) for r in test)))
     groups: list[dict[str, Any]] = []
@@ -130,6 +131,7 @@ def holdout(deals: list[dict[str, Any]], last_train_year: int) -> dict[str, Any]
             }
         )
     return {
+        "train_n": len(train),
         "n": len(test),
         "base_rate": sum(t for _, t in ranked) / len(ranked),
         "auc": float(sk_metrics.roc_auc_score([t for _, t in ranked], [p for p, _ in ranked])),
@@ -185,7 +187,7 @@ def main() -> None:
     lines = [
         "# 4つの数字で、のれんの減損を当てる",
         "",
-        f"- {LAST_TRAIN_YEAR}年度までの {len(complete_rows(deals)) - result['n']} 件で学習し、"
+        f"- {LAST_TRAIN_YEAR}年度までの {result['train_n']} 件で学習し、"
         f"{LAST_TRAIN_YEAR + 1}年度以降の {result['n']} 件で確かめた",
         f"- 確かめの案件の減損率 {result['base_rate']:.1%}、AUC {result['auc']:.3f}",
         "- 4つの数字は全期間のデータを見て選んだ。2019年度までだけでも同じ向きの差が出る",
