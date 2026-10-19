@@ -12,7 +12,7 @@ https://github.com/Asmirai/edinet-ma-ledger/security/advisories/new
 
 ## 秘密情報の扱い
 
-このリポジトリで秘密情報に当たるのは、EDINET API v2 のキー（`EDINET_API_KEY`）だけです。台帳を EDINET の書類から作り直すときに使います。README の「すぐ試す」と、テストと CI では使いません。
+このリポジトリで秘密情報に当たるのは、EDINET API v2 のキー（`EDINET_API_KEY`）だけです。台帳を EDINET の書類から作り直すときに使います。README の「試す」と、テストと CI では使いません。
 
 - キーは `.env` に書きます。`cp .env.example .env` で作り、`uv run --env-file .env ...` で読み込みます
 - `.env` は `.gitignore` に入れてあります。コミットしません

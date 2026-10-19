@@ -80,3 +80,8 @@ test("買収額を上げるほど確率が上がり、平均を上回る買収�
   const limit = priceAboveAverage(points, site.base_rate);
   assert.ok(limit !== null && limit > 13 && limit < 15, `${limit}`);
 });
+
+test("上乗せ率の上限のほかに使えない数字があれば、曲線を作らずに止める", () => {
+  const deal = { targetNetAssets: 6, acquirerAssets: 0, equityRatio: 0.55, relatedness: "関連業種" };
+  assert.throws(() => priceCurve(site, deal, [10, 20]), /総資産/);
+});

@@ -176,7 +176,7 @@ def label_acquisitions(
     あわせて、買収前の ROA、その同業の中央値との差、買収前の ROA が同じ帯（基準の年の全社の10分位）の
     ΔROA の中央値との差（matched_excess_delta_roa）を付ける。
 
-    親会社と子会社が同じ案件を載せたときは、買収前の総資産が小さいほう（直接買った会社に近いほう）を主の行にする。
+    親会社と子会社が同じ案件を載せたときは、買収前の総資産が小さいほう（直接買った子会社であることが多い）を主の行にする。
     """
     deltas: defaultdict[tuple[str, int], list[float]] = defaultdict(list)
     befores: defaultdict[tuple[str, int], list[float]] = defaultdict(list)

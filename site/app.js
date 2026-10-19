@@ -102,8 +102,15 @@ function renderCurve(site, deal) {
   const low = Math.max(deal.targetNetAssets * 1.01, deal.price * 0.2, 0.01);
   const high = Math.max(deal.price * 2.2, low * 3);
   const prices = Array.from({ length: 200 }, (_, i) => low + ((high - low) * i) / 199);
-  const points = priceCurve(site, deal, prices);
   const summary = byId("chart-summary");
+  let points;
+  try {
+    points = priceCurve(site, deal, prices);
+  } catch {
+    // 使えない数字の理由は、結果の欄（renderResult）に出している
+    summary.textContent = "";
+    return;
+  }
   if (points.length < 2) {
     summary.textContent = "この数字では、曲線を描ける買収額の範囲がありません。";
     return;
@@ -142,16 +149,13 @@ function renderCurve(site, deal) {
   path(points.filter((point) => limit === null || point.price <= limit), "safe-line");
   if (limit !== null) path(points.filter((point) => point.price >= limit), "risk-line");
 
-  try {
+  // 描ける買収額は一続きの範囲なので、その中にあるいまの買収額は上乗せ率の上限を超えない
+  if (deal.price >= xMin && deal.price <= xMax) {
     const current = probability(site.model, dealInputs(deal, site.max_goodwill_ratio));
-    if (deal.price >= xMin && deal.price <= xMax) {
-      svg.append(svgElement("circle", { class: "current", cx: x(deal.price), cy: y(current), r: 5 }));
-      const anchor = x(deal.price) > width * 0.7 ? "end" : "start";
-      const shift = anchor === "end" ? -10 : 10;
-      svg.append(svgElement("text", { class: "current-label", x: x(deal.price) + shift, y: y(current) + 18, "text-anchor": anchor }, `いまの買収額 ${oku(deal.price)}`));
-    }
-  } catch {
-    // 入力が使えないときは点を描かない
+    svg.append(svgElement("circle", { class: "current", cx: x(deal.price), cy: y(current), r: 5 }));
+    const anchor = x(deal.price) > width * 0.7 ? "end" : "start";
+    const shift = anchor === "end" ? -10 : 10;
+    svg.append(svgElement("text", { class: "current-label", x: x(deal.price) + shift, y: y(current) + 18, "text-anchor": anchor }, `いまの買収額 ${oku(deal.price)}`));
   }
 
   summary.textContent =
@@ -180,8 +184,17 @@ function loadPreset(site, name) {
 }
 
 async function main() {
-  const response = await fetch("model.json");
-  const site = await response.json();
+  let site;
+  try {
+    const response = await fetch("model.json");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    site = await response.json();
+  } catch (problem) {
+    const error = byId("error");
+    error.textContent = `モデルを読み込めませんでした（${problem.message}）。ページを読み込み直してください。`;
+    error.hidden = false;
+    return;
+  }
   fillSiteNumbers(site);
   for (const input of document.querySelectorAll("input")) {
     input.addEventListener("input", () => render(site));

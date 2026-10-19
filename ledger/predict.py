@@ -131,7 +131,7 @@ def fit_models(
     numeric: tuple[str, ...],
     categorical: tuple[str, ...],
 ) -> dict[str, dict[str, float]]:
-    """全件の成功率・ロジスティック回帰・勾配ブースティングを学習し、確かめの案件での物差しを返す。
+    """全件の成功率・ロジスティック回帰・勾配ブースティングを学習し、確かめの案件での評価指標を返す。
 
     当てるものは各行の target。使う列は numeric（数値）と categorical（種類）で選ぶ。
     """
@@ -182,7 +182,7 @@ def fit_models(
 
 
 def build_report(train_n: int, test_n: int, results: dict[str, dict[str, float]]) -> str:
-    """モデルごとの物差しを Markdown の表にする。"""
+    """モデルごとの評価指標を Markdown の表にする。"""
     lines = [
         "# 買収の成否を当てられるか",
         "",

@@ -28,7 +28,7 @@ def 数値の列は全案件の四分位の境目で分け境目を群の名前�
     deals: list[dict[str, Any]] = [
         {"edinetCode": f"E{i}", "equity_ratio": i / 10, "impaired": i >= 7} for i in range(8)
     ]
-    # 物差しが空の案件も、境目を決めるのには使う
+    # 目的変数が空の案件も、境目を決めるのには使う
     deals.append({"edinetCode": "E9", "equity_ratio": 0.9, "impaired": None})
 
     rows = factor_summary(deals, "equity_ratio", "impaired", seed=1)

@@ -1,4 +1,4 @@
-"""買収の目的と、買い手の事業との近さを、注記の「企業結合を行った主な理由」から読み取らせる。
+"""買収の目的と、買い手との業種の関係を、注記の「企業結合を行った主な理由」から読み取らせる。
 
 注記全体を渡すと重いので、相手の名前の後にある「主な理由」の部分（300字まで）だけを切り出して渡す。
 対価の種類（現金か株式か）は、法的形式の書き方から機械で読む。
@@ -64,7 +64,7 @@ def consideration_kind(legal_form: str) -> Consideration:
 def purpose_items(
     rows: list[dict[str, str]], texts_by_doc: dict[str, list[str]], last_base_year: int
 ) -> list[dict[str, Any]]:
-    """成否を付けられる年の主の行について、目的と近さを聞く入力を作る。主な理由が見つからなければ None を入れる。"""
+    """成否を付けられる年の主の行について、目的と業種の関係を聞く入力を作る。主な理由が見つからなければ None を入れる。"""
     items: list[dict[str, Any]] = []
     for row in rows:
         if (
