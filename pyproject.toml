@@ -1,7 +1,7 @@
 [project]
 name = "edinet-ma-ledger"
 version = "0.1.0"
-description = "有価証券報告書の企業結合の注記から、上場企業の M&A の一覧を作る"
+description = "有価証券報告書から上場企業の M&A 台帳を作り、買収の失敗（のれんの減損）を予測する"
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28.1",
