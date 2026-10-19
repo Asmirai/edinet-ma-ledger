@@ -1,3 +1,4 @@
+import json
 import math
 import random
 from typing import Any
@@ -6,12 +7,15 @@ import pytest
 
 from ledger.scorer import (
     build_report,
+    build_site_model,
     complete_rows,
     deal_inputs,
+    export_model,
     fit_scorer,
     holdout,
     predict,
     price_curve,
+    probability_from_export,
     rank_candidates,
     read_candidates,
     read_ledger,
@@ -220,6 +224,13 @@ def 自社と候補のCSVを読む(tmp_path: Any) -> None:
     assert [c["name"] for c in candidates] == ["B社", "C社"]
     assert candidates[0]["inputs"]["goodwill_ratio"] == pytest.approx(0.9)
     assert candidates[1]["inputs"]["relatedness"] == "関連業種"
+    assert candidates[0]["values"] == {
+        "price": 50.0,
+        "target_net_assets": 5.0,
+        "acquirer_assets": 500.0,
+        "equity_ratio": 0.7,
+        "relatedness": "異業種",
+    }
 
 
 def 公開CSVから成否と4つの列がそろう行を読む(tmp_path: Any) -> None:
@@ -295,3 +306,78 @@ def 確かめの結果を群ごとの表にする() -> None:
     assert "2019年度までの 850 件で学習し、2020年度以降の 869 件で確かめた" in report
     assert "AUC 0.687" in report
     assert "| 1 | 173 | 2.9% | 7.5% |" in report
+
+
+def 書き出した係数から計算した確率がモデルの確率と一致する() -> None:
+    model = fit_scorer(_synthetic(900))
+    params = export_model(model)
+    cases = [
+        deal_inputs(
+            price=10,
+            target_net_assets=9,
+            acquirer_assets=500,
+            equity_ratio=0.2,
+            relatedness="同業種",
+        ),
+        deal_inputs(
+            price=30,
+            target_net_assets=3,
+            acquirer_assets=100,
+            equity_ratio=0.8,
+            relatedness="異業種",
+        ),
+        deal_inputs(
+            price=5,
+            target_net_assets=6,
+            acquirer_assets=50,
+            equity_ratio=0.5,
+            relatedness="関連業種",
+        ),
+    ]
+
+    expected = predict(model, cases)
+
+    for inputs, probability in zip(cases, expected):
+        assert probability_from_export(params, inputs) == pytest.approx(probability, abs=1e-12), (
+            inputs
+        )
+
+
+def 書き出しには標準化の平均と幅と業種の関係ごとの係数と切片が入る() -> None:
+    params = export_model(fit_scorer(_synthetic(900)))
+
+    assert set(params["numeric"]) == {"goodwill_ratio", "log_size_ratio", "equity_ratio"}
+    assert set(params["numeric"]["equity_ratio"]) == {"mean", "scale", "coef"}
+    assert set(params["relatedness"]) == {"同業種", "関連業種", "異業種"}
+    assert isinstance(params["intercept"], float)
+
+
+def ブラウザ向けのモデルに全体の失敗率と候補の例の確率を入れる() -> None:
+    deals = _synthetic(900)
+    model = fit_scorer(deals)
+    example: dict[str, Any] = {
+        "name": "B社",
+        "values": {"price": 15.0},
+        "inputs": deal_inputs(
+            price=15,
+            target_net_assets=12,
+            acquirer_assets=500,
+            equity_ratio=0.55,
+            relatedness="同業種",
+        ),
+    }
+
+    site = build_site_model(deals, [example])
+
+    rows = complete_rows(deals)
+    assert site["n"] == len(rows)
+    assert site["base_rate"] == pytest.approx(sum(r["impaired"] for r in rows) / len(rows))
+    assert site["max_goodwill_ratio"] == 1.5
+    assert site["holdout"]["auc"] == pytest.approx(holdout(deals, 2019)["auc"])
+    assert len(site["holdout"]["groups"]) == 5
+    assert site["examples"][0]["name"] == "B社"
+    assert site["examples"][0]["values"] == example["values"]
+    assert site["examples"][0]["probability"] == pytest.approx(
+        predict(model, [example["inputs"]])[0]
+    )
+    json.dumps(site, ensure_ascii=False)
