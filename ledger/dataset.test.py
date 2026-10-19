@@ -29,7 +29,7 @@ def _row(deal_id: str, **changes: str) -> dict[str, str]:
     return row | changes
 
 
-def 案件ごとに列と2つの物差しをまとめる() -> None:
+def 案件ごとに列と2つの目的変数をまとめる() -> None:
     rows = [
         _row("1"),
         _row("2", size_ratio="0.01", matched_excess_delta_roa="-0.01"),

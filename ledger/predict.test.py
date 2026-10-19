@@ -66,7 +66,7 @@ def 基準の年で学習と確かめに分ける() -> None:
     assert [r["base_year"] for r in test] == [2020, 2022]
 
 
-def 当て方の物差しを出す() -> None:
+def 評価指標を出す() -> None:
     truth = [True, False, True, False, True, False, False, False, False, False]
     perfect = [0.9, 0.1, 0.8, 0.2, 0.7, 0.1, 0.1, 0.1, 0.1, 0.1]
 
@@ -85,7 +85,7 @@ def どれも同じ確率なら上位10パーセントの成功率は全体の�
     assert evaluate(truth, [0.4] * 10)["top10_rate"] == pytest.approx(0.1)
 
 
-def 三つのモデルを学習して確かめの物差しを並べる() -> None:
+def 三つのモデルを学習して確かめの評価指標を並べる() -> None:
     rng = random.Random(0)
     rows: list[dict[str, Any]] = []
     for i in range(600):
@@ -114,7 +114,7 @@ def 三つのモデルを学習して確かめの物差しを並べる() -> None
     assert results["勾配ブースティング"]["auc"] > 0.7
 
 
-def 学習と確かめの件数とモデルごとの物差しを表にする() -> None:
+def 学習と確かめの件数とモデルごとの評価指標を表にする() -> None:
     scores = {"auc": 0.512, "pr_auc": 0.431, "brier": 0.245, "base_rate": 0.4, "top10_rate": 0.42}
 
     report = build_report(train_n=900, test_n=600, results={"ロジスティック回帰": scores})
