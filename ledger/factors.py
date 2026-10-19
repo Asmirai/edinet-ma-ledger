@@ -9,6 +9,7 @@
 （roa・industries・impairments・purposes を先に用意しておく）
 """
 
+import argparse
 import bisect
 import importlib
 import math
@@ -353,6 +354,9 @@ def build_report(deals: list[dict[str, Any]]) -> str:
 
 
 def main() -> None:
+    argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    ).parse_args()
     deals = load_deals()
     REPORT_PATH.write_text(build_report(deals), encoding="utf-8")
     print(f"{len(deals)} 件：{REPORT_PATH}")

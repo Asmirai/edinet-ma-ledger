@@ -8,6 +8,7 @@ ROA は、親会社株主に帰属する当期純利益 ÷ 期末の総資産。
 （data/documents の有報の ZIP と、data/codelist/EdinetcodeDlInfo.csv（EDINET コードリスト）を先に置いておく）
 """
 
+import argparse
 import bisect
 import calendar
 import csv
@@ -288,6 +289,9 @@ def label_acquisitions(
 
 
 def main() -> None:
+    argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    ).parse_args()
     saved: dict[str, Any] = {}
     if FINANCIALS_PATH.exists():
         saved = cast(dict[str, Any], json.loads(FINANCIALS_PATH.read_text(encoding="utf-8")))

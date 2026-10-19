@@ -8,9 +8,9 @@
   uv run python -m ledger.claude_deals check data/claude_deals/y2024
 """
 
+import argparse
 import html
 import json
-import sys
 from collections import Counter
 from datetime import date
 from pathlib import Path
@@ -110,15 +110,24 @@ def check_outputs(year_dir: Path) -> tuple[Counter[str], list[tuple[str, str, li
 
 
 def main() -> None:
-    command, *args = sys.argv[1:]
-    if command == "split":
-        start, end, year_dir = date.fromisoformat(args[0]), date.fromisoformat(args[1]), args[2]
-        reports, notes = split_notes(LISTS_DIR, NOTES_DIR, start, end, Path(year_dir))
-        print(f"{start}〜{end}：有報 {reports} 件、中身のある注記 {notes} 件")
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+    split = commands.add_parser(
+        "split", help="期間内に出た有報の注記を、サブエージェントに渡す入力に分ける"
+    )
+    split.add_argument("start", type=date.fromisoformat)
+    split.add_argument("end", type=date.fromisoformat)
+    split.add_argument("year_dir", type=Path)
+    check = commands.add_parser("check", help="サブエージェントの出力を原文と照らし合わせる")
+    check.add_argument("year_dir", type=Path)
+    args = parser.parse_args()
+    if args.command == "split":
+        reports, notes = split_notes(LISTS_DIR, NOTES_DIR, args.start, args.end, args.year_dir)
+        print(f"{args.start}〜{args.end}：有報 {reports} 件、中身のある注記 {notes} 件")
         return
-    if command != "check":
-        raise SystemExit(f"知らないコマンド：{command}（split か check）")
-    kinds, mismatches = check_outputs(Path(args[0]))
+    kinds, mismatches = check_outputs(args.year_dir)
     acquisitions = kinds[ACQUISITION]
     print(
         f"案件の種類：{dict(kinds)}。取得のうち全項目を照合できたもの：{acquisitions - len(mismatches)}/{acquisitions} 件"

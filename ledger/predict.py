@@ -7,6 +7,7 @@
 使い方：uv run python -m ledger.predict
 """
 
+import argparse
 import csv
 import importlib
 import math
@@ -200,6 +201,9 @@ def build_report(train_n: int, test_n: int, results: dict[str, dict[str, float]]
 
 
 def main() -> None:
+    argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    ).parse_args()
     industries = read_industries(INDUSTRIES_DIR)
     with LABELED_PATH.open(encoding="utf-8-sig", newline="") as file:
         rows = model_rows(list(csv.DictReader(file)), industries)

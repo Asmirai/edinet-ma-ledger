@@ -20,10 +20,10 @@ EDINET から書類を取り直さなくても動く。
   target_net_assets は、取得する持分に当たる相手の純資産。一部だけ買うなら、その割合を掛けた額）
 """
 
+import argparse
 import csv
 import importlib
 import math
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -245,13 +245,23 @@ def build_report(result: dict[str, Any]) -> str:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "candidates",
+        type=Path,
+        nargs="?",
+        help="候補の CSV。省くと、学習に使っていない年で確かめる",
+    )
+    args = parser.parse_args()
     if not PUBLIC_PATH.exists():
         raise SystemExit(
             f"{PUBLIC_PATH} がありません。次の URL から台帳の CSV を取って置いてください：{RELEASE_URL}"
         )
     deals = read_ledger(PUBLIC_PATH)
-    if len(sys.argv) > 1:
-        ranked = rank_candidates(fit_scorer(deals), read_candidates(Path(sys.argv[1])))
+    if args.candidates is not None:
+        ranked = rank_candidates(fit_scorer(deals), read_candidates(args.candidates))
         for name, probability in ranked:
             print(f"{name}\t{probability:.1%}")
         return

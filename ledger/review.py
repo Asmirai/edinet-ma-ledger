@@ -6,9 +6,9 @@
   uv run python -m ledger.review score data/review
 """
 
+import argparse
 import json
 import random
-import sys
 from pathlib import Path
 from typing import Any, cast
 
@@ -80,12 +80,21 @@ def score_reviews(review_dir: Path) -> dict[str, Any]:
 
 
 def main() -> None:
-    command, review_dir = sys.argv[1], Path(sys.argv[2])
-    if command == "sample":
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser(
+        "sample", help="年ごとに注記を無作為に選び、採点の入力に分ける"
+    ).add_argument("review_dir", type=Path)
+    commands.add_parser("score", help="採点の出力から誤りを数える").add_argument(
+        "review_dir", type=Path
+    )
+    args = parser.parse_args()
+    review_dir: Path = args.review_dir
+    if args.command == "sample":
         sample_notes(CLAUDE_DEALS_DIR, NOTES_PER_YEAR, SEED, review_dir)
         return
-    if command != "score":
-        raise SystemExit(f"知らないコマンド：{command}（sample か score）")
     scores = score_reviews(review_dir)
     found = scores["acquisitions"] - scores["missed"]
     print(

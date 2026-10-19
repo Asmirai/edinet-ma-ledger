@@ -7,10 +7,10 @@
 使い方：uv run --group figures python -m ledger.figures <出力するフォルダ>
 """
 
+import argparse
 import importlib
 import math
 import statistics
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -506,7 +506,11 @@ def curve(deals: list[dict[str, Any]], path: Path) -> None:
 
 
 def main() -> None:
-    out = Path(sys.argv[1])
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("out", type=Path, help="図を書き出すフォルダ")
+    out: Path = parser.parse_args().out
     out.mkdir(parents=True, exist_ok=True)
     deals = load_deals()
     # モデルの図は、ledger.scorer と同じく公開用の台帳から学習する
