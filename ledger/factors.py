@@ -34,7 +34,7 @@ COUNTED = {"prior_deals": "件", "risk_count": "個"}
 # 回帰では、これより少ない群を「少数の群」にまとめる。表より少し下げ、大きい買収（約300件）の群も残す
 MIN_REGRESSION_GROUP = 20
 # 回帰でオッズ比の基準にする群。読み手が「ふつうの買収」と受け取るもの
-REFERENCES = {"purpose": "同じ事業の拡大", "relatedness": "同じ事業", "consideration": "現金"}
+REFERENCES = {"purpose": "同じ事業の拡大", "relatedness": "同業種", "consideration": "現金"}
 NEW_NUMERIC = (*NUMERIC, *PROFILE_FIELDS)
 NEW_CATEGORICAL = (*CATEGORICAL, "purpose", "relatedness", "consideration")
 LAST_TRAIN_YEAR = 2019
@@ -219,7 +219,7 @@ FACTORS = {
     "equity_ratio": "買い手の自己資本比率",
     "cash_ratio": "買い手の現金 ÷ 総資産",
     "prior_deals": "直前2年の買収の件数",
-    "risk_count": "当てはまる危険信号の数（のれんの割合84%以上・遠い事業・自己資本比率65%以上・総資産の5%以上）",
+    "risk_count": "当てはまる危険信号の数（のれんの割合84%以上・異業種・自己資本比率65%以上・総資産の5%以上）",
     "basis": "買い手の会計基準（買収前の期）",
 }
 

@@ -10,9 +10,12 @@
 確かめ方の限界：4つの数字は全期間のデータを見て選んだ（2019年度までだけでも同じ向きの差が出る）。
 また、学習に使う2019年度までの買収の成否は、3年後の2022年度までに出そろう。
 
+学習には公開用の台帳（data/public/ma_ledger.csv）だけを使う。Release から取った CSV を置けば、
+EDINET から書類を取り直さなくても動く。
+
 使い方：
 - uv run python -m ledger.scorer：2019年度までで学習し、2020年度以降で確かめた結果を data/scorer.md に書く
-- uv run python -m ledger.scorer candidates.csv：全件で学習したモデルで、候補ごとの確率を出す
+- uv run python -m ledger.scorer examples/candidates.csv：全件で学習したモデルで、候補ごとの確率を出す
   （列は name, price, target_net_assets, acquirer_assets, equity_ratio, relatedness。金額の単位はそろえる。
   target_net_assets は、取得する持分に当たる相手の純資産。一部だけ買うなら、その割合を掛けた額）
 """
@@ -26,15 +29,16 @@ from typing import Any
 
 import pandas as pd
 
-from ledger.dataset import load_deals
+from ledger.export import PUBLIC_PATH
 from ledger.features import MAX_GOODWILL_RATIO
+from ledger.purposes import LAST_BASE_YEAR
 
 REPORT_PATH = Path("data/scorer.md")
 LAST_TRAIN_YEAR = 2019
 NUMERIC = ("goodwill_ratio", "log_size_ratio", "equity_ratio")
 CATEGORICAL = ("relatedness",)
-# 候補の CSV に書く業種の関係と、台帳の分類（relatedness）の対応
-RELATEDNESS = {"同業種": "同じ事業", "関連業種": "近い事業", "異業種": "遠い事業"}
+RELATEDNESS = ("同業種", "関連業種", "異業種")
+RELEASE_URL = "https://github.com/Asmirai/edinet-ma-ledger/releases/latest/download/ma_ledger.csv"
 GROUPS = 5
 # scikit-learn には型の情報が無いので、境目で Any として扱う
 sk_compose: Any = importlib.import_module("sklearn.compose")
@@ -70,8 +74,46 @@ def deal_inputs(
         "goodwill_ratio": goodwill_ratio,
         "log_size_ratio": math.log(price / acquirer_assets),
         "equity_ratio": equity_ratio,
-        "relatedness": RELATEDNESS[relatedness],
+        "relatedness": relatedness,
     }
+
+
+def read_ledger(path: Path) -> list[dict[str, Any]]:
+    """公開用の台帳から、学習に使う行（成否と4つの列がそろう主の行）を読む。
+
+    のれんの割合が 1.5 を超える行（単位の読み違いが多い）と、成否を付けられない年の行は使わない。
+    """
+    with path.open(encoding="utf-8-sig", newline="") as file:
+        records = list(csv.DictReader(file))
+    rows: list[dict[str, Any]] = []
+    for record in records:
+        if (
+            record["primary"] != "True"
+            or record["goodwill_impaired"] not in ("True", "False")
+            or not record["base_year"]
+            or int(record["base_year"]) > LAST_BASE_YEAR
+        ):
+            continue
+        consideration = float(record["consideration_yen"] or 0)
+        size = float(record["size_ratio"] or 0)
+        if consideration <= 0 or size <= 0 or not record["goodwill_yen"]:
+            continue
+        goodwill_ratio = float(record["goodwill_yen"]) / consideration
+        if goodwill_ratio > MAX_GOODWILL_RATIO:
+            continue
+        rows.append(
+            {
+                "base_year": int(record["base_year"]),
+                "impaired": record["goodwill_impaired"] == "True",
+                "goodwill_ratio": goodwill_ratio,
+                "log_size_ratio": math.log(size),
+                "equity_ratio": float(record["acquirer_equity_ratio"])
+                if record["acquirer_equity_ratio"]
+                else None,
+                "relatedness": record["relatedness"] or None,
+            }
+        )
+    return complete_rows(rows)
 
 
 def complete_rows(deals: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -176,7 +218,11 @@ def read_candidates(path: Path) -> list[dict[str, Any]]:
 
 
 def main() -> None:
-    deals = load_deals()
+    if not PUBLIC_PATH.exists():
+        raise SystemExit(
+            f"{PUBLIC_PATH} がありません。次の URL から台帳の CSV を取って置いてください：{RELEASE_URL}"
+        )
+    deals = read_ledger(PUBLIC_PATH)
     if len(sys.argv) > 1:
         candidates = read_candidates(Path(sys.argv[1]))
         model = fit_scorer(deals)

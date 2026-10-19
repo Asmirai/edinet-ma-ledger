@@ -8,7 +8,7 @@
 import csv
 from pathlib import Path
 
-from ledger.dataset import PURPOSES_DIR
+from ledger.dataset import PURPOSES_DIR, acquirer_profiles
 from ledger.impairments import IMPAIRMENTS_PATH
 from ledger.purposes import read_purposes
 from ledger.roa import LABELED_PATH
@@ -30,6 +30,7 @@ COLUMNS = (
     "goodwill_yen",
     "assets_total_yen",
     "size_ratio",
+    "acquirer_equity_ratio",
     "purpose",
     "relatedness",
     "base_year",
@@ -45,13 +46,17 @@ def public_rows(
     ledger_rows: list[dict[str, str]],
     impairments: dict[str, tuple[str, str]],
     purposes: dict[str, tuple[str, str]],
+    profiles: dict[str, dict[str, float | None]],
 ) -> list[dict[str, str]]:
-    """台帳の行に、のれんの減損（と判定できなかった理由）、目的、事業の近さを付け、公開用の列にする。分からない値は空。"""
+    """台帳の行に、のれんの減損（と判定できなかった理由）、目的、業種の関係、買い手の自己資本比率を付け、
+    公開用の列にする。分からない値は空。
+    """
     rows: list[dict[str, str]] = []
     for row in ledger_rows:
         key = f"{row['deal_id']}-{row['edinetCode']}"
         impaired, note = impairments.get(key, ("", ""))
         purpose, relatedness = purposes.get(key, ("", ""))
+        equity_ratio = profiles.get(key, {}).get("equity_ratio")
         matched = row["matched_excess_delta_roa"]
         rows.append(
             {
@@ -70,6 +75,7 @@ def public_rows(
                 "goodwill_yen": row["goodwill_yen"],
                 "assets_total_yen": row["assets_total_yen"],
                 "size_ratio": row["size_ratio"],
+                "acquirer_equity_ratio": "" if equity_ratio is None else str(equity_ratio),
                 "purpose": purpose,
                 "relatedness": relatedness,
                 "base_year": row["base_year"],
@@ -88,7 +94,9 @@ def main() -> None:
         ledger_rows = list(csv.DictReader(file))
     with IMPAIRMENTS_PATH.open(encoding="utf-8-sig", newline="") as file:
         impairments = {r["key"]: (r["impaired"], r["reason"]) for r in csv.DictReader(file)}
-    rows = public_rows(ledger_rows, impairments, read_purposes(PURPOSES_DIR))
+    rows = public_rows(
+        ledger_rows, impairments, read_purposes(PURPOSES_DIR), acquirer_profiles(ledger_rows)
+    )
     PUBLIC_PATH.parent.mkdir(parents=True, exist_ok=True)
     # Excel で開いても文字化けしないように BOM を付ける
     with PUBLIC_PATH.open("w", encoding="utf-8-sig", newline="") as file:

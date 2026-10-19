@@ -66,7 +66,7 @@ def ほかの要因をそろえても残る差を回帰で出す() -> None:
                 "edinetCode": f"E{i % 300}",
                 "industry": "卸売業" if i % 2 else "小売業",
                 "base_year": 2017 + i % 4,
-                "relatedness": "遠い事業" if far else "同じ事業",
+                "relatedness": "異業種" if far else "同業種",
                 "goodwill_ratio": rng.random(),
                 "impaired": rng.random() < (0.4 if far else 0.1),
             }
@@ -75,7 +75,7 @@ def ほかの要因をそろえても残る差を回帰で出す() -> None:
     result = adjusted_effects(deals, "impaired", ("goodwill_ratio",), ("relatedness",))
 
     assert result["n"] == 1200
-    far = next(e for e in result["effects"] if e["term"] == "relatedness：遠い事業")
+    far = next(e for e in result["effects"] if e["term"] == "relatedness：異業種")
     assert far["odds_ratio"] > 3
     assert far["p"] < 0.001
 

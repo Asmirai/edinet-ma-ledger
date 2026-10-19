@@ -32,7 +32,8 @@ def 台帳の事実と分析で付けた値を公開用の列にする() -> None
     rows = public_rows(
         [_row()],
         {"1-E1": ("False", "")},
-        {"1-E1": ("同じ事業の拡大", "同じ事業")},
+        {"1-E1": ("同じ事業の拡大", "同業種")},
+        {"1-E1": {"equity_ratio": 0.4567, "cash_ratio": 0.1}},
     )
 
     assert list(rows[0]) == list(COLUMNS)
@@ -41,20 +42,23 @@ def 台帳の事実と分析で付けた値を公開用の列にする() -> None
     assert rows[0]["goodwill_impaired"] == "False"
     assert rows[0]["roa_beat_peers"] == "True"
     assert rows[0]["purpose"] == "同じ事業の拡大"
+    assert rows[0]["relatedness"] == "同業種"
+    assert rows[0]["acquirer_equity_ratio"] == "0.4567"
 
 
 def 主の行でない行も残し分からない値は空にする() -> None:
-    rows = public_rows([_row(primary="False", matched_excess_delta_roa="")], {}, {})
+    rows = public_rows([_row(primary="False", matched_excess_delta_roa="")], {}, {}, {})
 
     assert rows[0]["primary"] == "False"
     assert rows[0]["roa_beat_peers"] == ""
     assert rows[0]["goodwill_impaired"] == ""
     assert rows[0]["goodwill_impaired_note"] == ""
     assert rows[0]["purpose"] == ""
+    assert rows[0]["acquirer_equity_ratio"] == ""
 
 
 def 減損を判定できなかった理由を写す() -> None:
-    rows = public_rows([_row()], {"1-E1": ("", "事業譲受")}, {})
+    rows = public_rows([_row()], {"1-E1": ("", "事業譲受")}, {}, {})
 
     assert rows[0]["goodwill_impaired"] == ""
     assert rows[0]["goodwill_impaired_note"] == "事業譲受"

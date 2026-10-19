@@ -12,10 +12,11 @@ from ledger.scorer import (
     predict,
     price_curve,
     read_candidates,
+    read_ledger,
 )
 
 
-def 候補の数字を4つの列にし業種の関係を台帳の分類に読み替える() -> None:
+def 候補の数字を4つの列にする() -> None:
     inputs = deal_inputs(
         price=50,
         target_net_assets=5,
@@ -27,7 +28,7 @@ def 候補の数字を4つの列にし業種の関係を台帳の分類に読み
     assert inputs["goodwill_ratio"] == pytest.approx(0.9)
     assert inputs["log_size_ratio"] == pytest.approx(math.log(0.1))
     assert inputs["equity_ratio"] == 0.7
-    assert inputs["relatedness"] == "遠い事業"
+    assert inputs["relatedness"] == "異業種"
 
 
 def 相手の純資産が買収額より大きければ上乗せ率は0にする() -> None:
@@ -91,7 +92,7 @@ def _deal(year: int, impaired: bool | None, **changes: Any) -> dict[str, Any]:
         "goodwill_ratio": 0.5,
         "log_size_ratio": math.log(0.02),
         "equity_ratio": 0.5,
-        "relatedness": "近い事業",
+        "relatedness": "関連業種",
     }
     return deal | changes
 
@@ -108,13 +109,13 @@ def 成否と4つの列がそろう案件だけを使う() -> None:
 
 
 def _synthetic(count: int) -> list[dict[str, Any]]:
-    """上乗せ率が高く、遠い事業ほど減損しやすい案件を作る。"""
+    """上乗せ率が高く、異業種ほど減損しやすい案件を作る。"""
     rng = random.Random(0)
     deals: list[dict[str, Any]] = []
     for i in range(count):
         ratio = rng.random()
-        relatedness = ("同じ事業", "近い事業", "遠い事業")[i % 3]
-        risk = 0.05 + 0.4 * ratio + (0.2 if relatedness == "遠い事業" else 0)
+        relatedness = ("同業種", "関連業種", "異業種")[i % 3]
+        risk = 0.05 + 0.4 * ratio + (0.2 if relatedness == "異業種" else 0)
         deals.append(
             _deal(
                 2016 + i % 7,
@@ -195,4 +196,32 @@ def 自社と候補のCSVを読む(tmp_path: Any) -> None:
 
     assert [c["name"] for c in candidates] == ["B社", "C社"]
     assert candidates[0]["inputs"]["goodwill_ratio"] == pytest.approx(0.9)
-    assert candidates[1]["inputs"]["relatedness"] == "近い事業"
+    assert candidates[1]["inputs"]["relatedness"] == "関連業種"
+
+
+def 公開CSVから成否と4つの列がそろう行を読む(tmp_path: Any) -> None:
+    header = (
+        "deal_id,primary,consideration_yen,goodwill_yen,size_ratio,relatedness,"
+        "acquirer_equity_ratio,base_year,goodwill_impaired\n"
+    )
+    path = tmp_path / "ma_ledger.csv"
+    path.write_text(
+        header
+        + "1,True,1000,800,0.05,異業種,0.7,2019,True\n"
+        # 主の行でない、減損を判定していない、のれんの割合が1.5を超える、基準の年が2022年より後
+        + "1,False,1000,800,0.05,異業種,0.7,2019,\n"
+        + "2,True,1000,800,0.05,,0.7,2019,\n"
+        + "3,True,1000,2000,0.05,同業種,0.4,2020,False\n"
+        + "4,True,1000,100,0.05,同業種,0.4,2023,False\n",
+        encoding="utf-8-sig",
+    )
+
+    rows = read_ledger(path)
+
+    assert len(rows) == 1
+    assert rows[0]["base_year"] == 2019
+    assert rows[0]["impaired"] is True
+    assert rows[0]["goodwill_ratio"] == pytest.approx(0.8)
+    assert rows[0]["log_size_ratio"] == pytest.approx(math.log(0.05))
+    assert rows[0]["equity_ratio"] == pytest.approx(0.7)
+    assert rows[0]["relatedness"] == "異業種"

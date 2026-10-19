@@ -15,9 +15,18 @@ from pathlib import Path
 from typing import Any
 
 from ledger.dataset import load_deals
+from ledger.export import PUBLIC_PATH
 from ledger.factors import SEED, factor_summary
 from ledger.purposes import LAST_BASE_YEAR
-from ledger.scorer import LAST_TRAIN_YEAR, complete_rows, fit_scorer, holdout, predict, price_curve
+from ledger.scorer import (
+    LAST_TRAIN_YEAR,
+    complete_rows,
+    fit_scorer,
+    holdout,
+    predict,
+    price_curve,
+    read_ledger,
+)
 from ledger.scorer import deal_inputs as scorer_inputs
 
 # matplotlib の型の情報は一部しか無いので、境目で Any として扱う
@@ -196,7 +205,7 @@ def _ends(deals: list[dict[str, Any]], factor: str) -> tuple[dict[str, Any], dic
     rows = factor_summary(deals, factor, "impaired", SEED)
     if factor == "relatedness":
         by_name = {r["group"]: r for r in rows}
-        return by_name["同じ事業"], by_name["遠い事業"]
+        return by_name["同業種"], by_name["異業種"]
     return rows[0], rows[-1]
 
 
@@ -289,7 +298,7 @@ def confounding(deals: list[dict[str, Any]], path: Path) -> None:
         return sum(d["impaired"] for d in group) / len(group) * 100
 
     def far(group: list[dict[str, Any]]) -> float:
-        return sum(d["relatedness"] == "遠い事業" for d in group) / len(group) * 100
+        return sum(d["relatedness"] == "異業種" for d in group) / len(group) * 100
 
     fig = _figure(
         "新規参入の失敗が多く見えたのは、異業種の買収が多かったから",
@@ -322,8 +331,8 @@ def confounding(deals: list[dict[str, Any]], path: Path) -> None:
     left.set_xticks([0, 1], ["新規参入", "それ以外"])
     left.set_ylim(0, max(shares) * 1.3)
     _clean(left)
-    near_entry = [d for d in entry if d["relatedness"] == "近い事業"]
-    near_other = [d for d in other if d["relatedness"] == "近い事業"]
+    near_entry = [d for d in entry if d["relatedness"] == "関連業種"]
+    near_other = [d for d in other if d["relatedness"] == "関連業種"]
     pairs = [
         ("すべて", rate(entry), rate(other)),
         ("関連業種だけ", rate(near_entry), rate(near_other)),
@@ -501,12 +510,14 @@ def main() -> None:
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
     deals = load_deals()
-    holdout_groups(deals, out / "fig1_holdout.png")
+    # モデルの図は、ledger.scorer と同じく公開用の台帳から学習する
+    ledger_rows = read_ledger(PUBLIC_PATH)
+    holdout_groups(ledger_rows, out / "fig1_holdout.png")
     size_buckets(deals, out / "fig2_size.png")
     signals(deals, out / "fig3_signals.png")
     confounding(deals, out / "fig4_confounding.png")
-    candidates(deals, out / "fig5_candidates.png")
-    curve(deals, out / "fig6_price_curve.png")
+    candidates(ledger_rows, out / "fig5_candidates.png")
+    curve(ledger_rows, out / "fig6_price_curve.png")
 
 
 if __name__ == "__main__":
