@@ -15,6 +15,7 @@ dev = [
     "basedpyright>=1.40.2",
     "pandas-stubs>=3.0.5.260914",
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
     "ruff>=0.17.0",
 ]
 figures = [
@@ -43,3 +44,14 @@ target-version = "py312"
 select = ["E", "W", "F", "I"]
 # 行幅は表示幅で数えるため、日本語の文字列で頻発する。整形は formatter に任せる
 ignore = ["E501"]
+
+[tool.coverage.run]
+source = ["ledger"]
+# テストそのものと、macOS のフォントで図を描くだけの figures は数えない
+omit = ["ledger/*.test.py", "ledger/figures.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+# いまの値（2026-10 時点で 80%）を下回ったら CI を落とす
+fail_under = 80

@@ -14,3 +14,4 @@ wheels/
 
 # EDINET から取った書類と、途中の生成物
 data/
+.coverage
