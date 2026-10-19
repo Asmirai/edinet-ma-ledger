@@ -26,3 +26,8 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run basedpyright
       - run: uv run pytest -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # ブラウザのシミュレーターが、Python と同じ確率を出すかを確かめる
+      - run: node --test site/

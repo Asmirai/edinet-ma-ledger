@@ -23,6 +23,7 @@ EDINET から書類を取り直さなくても動く。
 import argparse
 import csv
 import importlib
+import json
 import math
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,7 @@ import pandas as pd
 from ledger.public import LAST_BASE_YEAR, MAX_GOODWILL_RATIO, PUBLIC_PATH, RELATEDNESS
 
 REPORT_PATH = Path("data/scorer.md")
+EXAMPLES_PATH = Path("examples/candidates.csv")
 LAST_TRAIN_YEAR = 2019
 NUMERIC = ("goodwill_ratio", "log_size_ratio", "equity_ratio")
 CATEGORICAL = ("relatedness",)
@@ -150,6 +152,67 @@ def predict(model: Any, inputs: list[dict[str, Any]]) -> list[float]:
     return [float(p) for p in model.predict_proba(_frame(inputs))[:, 1]]
 
 
+def export_model(model: Any) -> dict[str, Any]:
+    """学習したモデルの係数を、ほかの言語でも同じ確率を計算できる形にする。
+
+    確率は 1 / (1 + exp(-z))。z は切片に、数値の列ごとの係数 ×（値 − 平均）÷ 幅と、業種の関係の係数を足したもの。
+    """
+    transformer, logistic = model.steps[0][1], model.steps[1][1]
+    scaler = transformer.named_transformers_["numeric"]
+    encoder = transformer.named_transformers_["categorical"]
+    coefficients = [float(c) for c in logistic.coef_[0]]
+    return {
+        "intercept": float(logistic.intercept_[0]),
+        "numeric": {
+            name: {
+                "mean": float(scaler.mean_[i]),
+                "scale": float(scaler.scale_[i]),
+                "coef": coefficients[i],
+            }
+            for i, name in enumerate(NUMERIC)
+        },
+        "relatedness": {
+            str(category): coefficients[len(NUMERIC) + j]
+            for j, category in enumerate(encoder.categories_[0])
+        },
+    }
+
+
+def probability_from_export(params: dict[str, Any], inputs: dict[str, Any]) -> float:
+    """export_model の係数から確率を計算する。ブラウザのシミュレーターと同じ式。"""
+    z = params["intercept"] + params["relatedness"].get(inputs["relatedness"], 0.0)
+    for name, spec in params["numeric"].items():
+        z += spec["coef"] * (inputs[name] - spec["mean"]) / spec["scale"]
+    return 1 / (1 + math.exp(-z))
+
+
+def build_site_model(deals: list[dict[str, Any]], examples: list[dict[str, Any]]) -> dict[str, Any]:
+    """ブラウザのシミュレーターが読むモデル：係数、学習した件数と失敗率、上乗せ率の上限、
+    学習に使っていない年で確かめた結果、例の候補の確率。
+    """
+    rows = complete_rows(deals)
+    model = fit_scorer(rows)
+    by_name = {e["name"]: e for e in examples}
+    return {
+        "n": len(rows),
+        "first_year": min(r["base_year"] for r in rows),
+        "last_year": max(r["base_year"] for r in rows),
+        "base_rate": sum(bool(r["impaired"]) for r in rows) / len(rows),
+        "max_goodwill_ratio": MAX_GOODWILL_RATIO,
+        "holdout": holdout(rows, LAST_TRAIN_YEAR),
+        "model": export_model(model),
+        "examples": [
+            {
+                "name": name,
+                "values": by_name[name]["values"],
+                "inputs": by_name[name]["inputs"],
+                "probability": probability,
+            }
+            for name, probability in rank_candidates(model, examples)
+        ],
+    }
+
+
 def holdout(deals: list[dict[str, Any]], last_train_year: int) -> dict[str, Any]:
     """基準の年が last_train_year までの案件で学習し、その後の案件で確かめる。
 
@@ -198,20 +261,21 @@ def price_curve(
 
 
 def read_candidates(path: Path) -> list[dict[str, Any]]:
+    """候補の CSV を読む。候補ごとに、名前・書かれた値（values）・モデルに入れる列（inputs）を返す。"""
+    candidates: list[dict[str, Any]] = []
     with path.open(encoding="utf-8-sig", newline="") as file:
-        return [
-            {
-                "name": row["name"],
-                "inputs": deal_inputs(
-                    float(row["price"]),
-                    float(row["target_net_assets"]),
-                    float(row["acquirer_assets"]),
-                    float(row["equity_ratio"]),
-                    row["relatedness"],
-                ),
+        for row in csv.DictReader(file):
+            values: dict[str, Any] = {
+                "price": float(row["price"]),
+                "target_net_assets": float(row["target_net_assets"]),
+                "acquirer_assets": float(row["acquirer_assets"]),
+                "equity_ratio": float(row["equity_ratio"]),
+                "relatedness": row["relatedness"],
             }
-            for row in csv.DictReader(file)
-        ]
+            candidates.append(
+                {"name": row["name"], "values": values, "inputs": deal_inputs(**values)}
+            )
+    return candidates
 
 
 def rank_candidates(model: Any, candidates: list[dict[str, Any]]) -> list[tuple[str, float]]:
@@ -254,12 +318,23 @@ def main() -> None:
         nargs="?",
         help="候補の CSV。省くと、学習に使っていない年で確かめる",
     )
+    parser.add_argument(
+        "--export-model",
+        type=Path,
+        help="ブラウザのシミュレーターが読むモデル（JSON）を書き出す。例の候補は examples/candidates.csv",
+    )
     args = parser.parse_args()
     if not PUBLIC_PATH.exists():
         raise SystemExit(
             f"{PUBLIC_PATH} がありません。次の URL から台帳の CSV を取って置いてください：{RELEASE_URL}"
         )
     deals = read_ledger(PUBLIC_PATH)
+    if args.export_model is not None:
+        site = build_site_model(deals, read_candidates(EXAMPLES_PATH))
+        text = json.dumps(site, ensure_ascii=False, indent=2) + "\n"
+        args.export_model.write_text(text, encoding="utf-8")
+        print(f"{site['n']} 件で学習したモデル：{args.export_model}")
+        return
     if args.candidates is not None:
         ranked = rank_candidates(fit_scorer(deals), read_candidates(args.candidates))
         for name, probability in ranked:

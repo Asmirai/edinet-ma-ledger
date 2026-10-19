@@ -1,0 +1,135 @@
+{
+  "n": 1719,
+  "first_year": 2017,
+  "last_year": 2022,
+  "base_rate": 0.15474112856311809,
+  "max_goodwill_ratio": 1.5,
+  "holdout": {
+    "train_n": 850,
+    "n": 869,
+    "base_rate": 0.17261219792865362,
+    "auc": 0.6865785813630041,
+    "groups": [
+      {
+        "n": 173,
+        "rate": 0.028901734104046242,
+        "mean_probability": 0.07536064232945128
+      },
+      {
+        "n": 174,
+        "rate": 0.12643678160919541,
+        "mean_probability": 0.10208628508072021
+      },
+      {
+        "n": 174,
+        "rate": 0.1781609195402299,
+        "mean_probability": 0.12483925998302954
+      },
+      {
+        "n": 174,
+        "rate": 0.22988505747126436,
+        "mean_probability": 0.15172241114959872
+      },
+      {
+        "n": 174,
+        "rate": 0.2988505747126437,
+        "mean_probability": 0.20414602676536833
+      }
+    ]
+  },
+  "model": {
+    "intercept": -1.6334764318941513,
+    "numeric": {
+      "goodwill_ratio": {
+        "mean": 0.5823420964906016,
+        "scale": 0.3209105731231407,
+        "coef": 0.3466978660279362
+      },
+      "log_size_ratio": {
+        "mean": -3.7095103927237814,
+        "scale": 1.5257616575557194,
+        "coef": 0.243279611946781
+      },
+      "equity_ratio": {
+        "mean": 0.5122060500290867,
+        "scale": 0.2016245858005217,
+        "coef": 0.2227065541702126
+      }
+    },
+    "relatedness": {
+      "同業種": -0.33900527995036006,
+      "異業種": 0.4512024573869211,
+      "関連業種": -0.10956634133518522
+    }
+  },
+  "examples": [
+    {
+      "name": "B社",
+      "values": {
+        "price": 15.0,
+        "target_net_assets": 12.0,
+        "acquirer_assets": 500.0,
+        "equity_ratio": 0.55,
+        "relatedness": "同業種"
+      },
+      "inputs": {
+        "goodwill_ratio": 0.2,
+        "log_size_ratio": -3.506557897319982,
+        "equity_ratio": 0.55,
+        "relatedness": "同業種"
+      },
+      "probability": 0.09017980659304098
+    },
+    {
+      "name": "C社",
+      "values": {
+        "price": 20.0,
+        "target_net_assets": 6.0,
+        "acquirer_assets": 500.0,
+        "equity_ratio": 0.55,
+        "relatedness": "関連業種"
+      },
+      "inputs": {
+        "goodwill_ratio": 0.7,
+        "log_size_ratio": -3.2188758248682006,
+        "equity_ratio": 0.55,
+        "relatedness": "関連業種"
+      },
+      "probability": 0.18302976348372
+    },
+    {
+      "name": "E社",
+      "values": {
+        "price": 40.0,
+        "target_net_assets": 2.0,
+        "acquirer_assets": 500.0,
+        "equity_ratio": 0.55,
+        "relatedness": "同業種"
+      },
+      "inputs": {
+        "goodwill_ratio": 0.95,
+        "log_size_ratio": -2.5257286443082556,
+        "equity_ratio": 0.55,
+        "relatedness": "同業種"
+      },
+      "probability": 0.2067246379224025
+    },
+    {
+      "name": "D社",
+      "values": {
+        "price": 30.0,
+        "target_net_assets": 3.0,
+        "acquirer_assets": 500.0,
+        "equity_ratio": 0.55,
+        "relatedness": "異業種"
+      },
+      "inputs": {
+        "goodwill_ratio": 0.9,
+        "log_size_ratio": -2.8134107167600364,
+        "equity_ratio": 0.55,
+        "relatedness": "異業種"
+      },
+      "probability": 0.3419844791855744
+    }
+  ]
+}
