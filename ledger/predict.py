@@ -180,17 +180,13 @@ def fit_models(
     return results
 
 
-def main() -> None:
-    industries = read_industries(INDUSTRIES_DIR)
-    with LABELED_PATH.open(encoding="utf-8-sig", newline="") as file:
-        rows = model_rows(list(csv.DictReader(file)), industries)
-    train, test = split_by_year(rows, LAST_TRAIN_YEAR)
-    results = fit_models(rows, LAST_TRAIN_YEAR, NUMERIC, CATEGORICAL)
+def build_report(train_n: int, test_n: int, results: dict[str, dict[str, float]]) -> str:
+    """モデルごとの物差しを Markdown の表にする。"""
     lines = [
         "# 買収の成否を当てられるか",
         "",
-        f"- 当てるもの：買収前の ROA でそろえた成否。学習 {len(train)} 件（基準の年が{LAST_TRAIN_YEAR}年まで）、"
-        f"確かめ {len(test)} 件（{LAST_TRAIN_YEAR + 1}年から）",
+        f"- 当てるもの：買収前の ROA でそろえた成否。学習 {train_n} 件（基準の年が{LAST_TRAIN_YEAR}年まで）、"
+        f"確かめ {test_n} 件（{LAST_TRAIN_YEAR + 1}年から）",
         "",
         "| モデル | AUC | PR-AUC | Brier | 全体の成功率 | 上位10%の成功率 |",
         "|---|---|---|---|---|---|",
@@ -200,8 +196,19 @@ def main() -> None:
             f"| {name} | {s['auc']:.3f} | {s['pr_auc']:.3f} | {s['brier']:.3f} "
             f"| {s['base_rate']:.1%} | {s['top10_rate']:.1%} |"
         )
-    REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print("\n".join(lines))
+    return "\n".join(lines) + "\n"
+
+
+def main() -> None:
+    industries = read_industries(INDUSTRIES_DIR)
+    with LABELED_PATH.open(encoding="utf-8-sig", newline="") as file:
+        rows = model_rows(list(csv.DictReader(file)), industries)
+    train, test = split_by_year(rows, LAST_TRAIN_YEAR)
+    report = build_report(
+        len(train), len(test), fit_models(rows, LAST_TRAIN_YEAR, NUMERIC, CATEGORICAL)
+    )
+    REPORT_PATH.write_text(report, encoding="utf-8")
+    print(report, end="")
 
 
 if __name__ == "__main__":

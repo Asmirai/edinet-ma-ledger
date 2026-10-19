@@ -6,46 +6,18 @@
 """
 
 import csv
-from pathlib import Path
 
 from ledger.dataset import PURPOSES_DIR, acquirer_profiles
 from ledger.impairments import IMPAIRMENTS_PATH
+from ledger.public import COLUMNS, PUBLIC_PATH, Purpose, Relatedness
 from ledger.purposes import read_purposes
 from ledger.roa import LABELED_PATH
-
-PUBLIC_PATH = Path("data/public/ma_ledger.csv")
-COLUMNS = (
-    "deal_id",
-    "primary",
-    "acquirer_edinet_code",
-    "acquirer_sec_code",
-    "acquirer_name",
-    "acquirer_industry",
-    "acquiree_name",
-    "acquiree_business",
-    "acquisition_date",
-    "legal_form",
-    "voting_ratio",
-    "consideration_yen",
-    "goodwill_yen",
-    "assets_total_yen",
-    "size_ratio",
-    "acquirer_equity_ratio",
-    "purpose",
-    "relatedness",
-    "base_year",
-    "delta_roa",
-    "roa_beat_peers",
-    "goodwill_impaired",
-    "goodwill_impaired_note",
-    "source_doc_ids",
-)
 
 
 def public_rows(
     ledger_rows: list[dict[str, str]],
     impairments: dict[str, tuple[str, str]],
-    purposes: dict[str, tuple[str, str]],
+    purposes: dict[str, tuple[Purpose, Relatedness]],
     profiles: dict[str, dict[str, float | None]],
 ) -> list[dict[str, str]]:
     """台帳の行に、のれんの減損（と判定できなかった理由）、目的、業種の関係、買い手の自己資本比率を付け、

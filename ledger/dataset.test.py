@@ -1,6 +1,7 @@
 from typing import Any
 
 from ledger.dataset import BIG_DEAL, deal_table, risk_count
+from ledger.public import Purpose, Relatedness
 
 
 def _row(deal_id: str, **changes: str) -> dict[str, str]:
@@ -35,7 +36,7 @@ def 案件ごとに列と2つの物差しをまとめる() -> None:
         _row("3", base_year="2024"),
         _row("4", primary="False"),
     ]
-    purposes = {"1-E1": ("同じ事業の拡大", "同業種")}
+    purposes: dict[str, tuple[Purpose, Relatedness]] = {"1-E1": ("同じ事業の拡大", "同業種")}
     profiles: dict[str, dict[str, float | None]] = {
         "1-E1": {"sales_growth": 0.1, "equity_ratio": 0.5, "cash_ratio": 0.2, "ocf_ratio": 0.05}
     }

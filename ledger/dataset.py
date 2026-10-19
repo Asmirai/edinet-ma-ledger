@@ -17,8 +17,9 @@ from ledger.impairments import IMPAIRMENTS_PATH
 from ledger.industries import INDUSTRIES_DIR, read_industries
 from ledger.notes import DOCUMENTS_DIR, NOTES_DIR
 from ledger.profiles import acquirer_profile
-from ledger.purposes import LAST_BASE_YEAR, consideration_kind, read_purposes
-from ledger.roa import FINANCIALS_PATH, LABELED_PATH, company_years
+from ledger.public import LAST_BASE_YEAR, Purpose, Relatedness
+from ledger.purposes import consideration_kind, read_purposes
+from ledger.roa import FINANCIALS_PATH, LABELED_PATH, years_by_company
 
 PURPOSES_DIR = Path("data/purposes")
 PROFILES_PATH = Path("data/profiles.json")
@@ -33,7 +34,7 @@ PROFILE_FIELDS = ("sales_growth", "equity_ratio", "cash_ratio", "ocf_ratio")
 def deal_table(
     rows: list[dict[str, str]],
     acquiree_industries: dict[str, str | None],
-    purposes: dict[str, tuple[str, str]],
+    purposes: dict[str, tuple[Purpose, Relatedness]],
     impairments: dict[str, bool],
     profiles: dict[str, dict[str, float | None]],
     bases: dict[str, str],
@@ -162,21 +163,12 @@ def acquirer_profiles(rows: list[dict[str, str]]) -> dict[str, dict[str, float |
 def _bases() -> dict[str, str]:
     """案件ごとの、買い手の買収前の期（基準の年の前年）の会計基準（日本基準・IFRS・米国基準・単体）。
 
-    ledger.roa と同じ company_years で期を並べ、ROA や買収の大きさの分母と同じ期の基準を取る。
+    ledger.roa と同じ years_by_company で期を並べ、ROA や買収の大きさの分母と同じ期の基準を取る。
     """
     with LABELED_PATH.open(encoding="utf-8-sig", newline="") as file:
         rows = [r for r in csv.DictReader(file) if r["base_year"]]
     saved = cast(dict[str, dict[str, Any]], json.loads(FINANCIALS_PATH.read_text(encoding="utf-8")))
-    reports: defaultdict[str, list[tuple[date, dict[int, tuple[int, int, str]]]]] = defaultdict(
-        list
-    )
-    for report in saved.values():
-        values = cast(dict[str, list[Any]], report["summary"])
-        summary = {int(k): (int(v[0]), int(v[1]), str(v[2])) for k, v in values.items()}
-        reports[str(report["edinetCode"])].append(
-            (date.fromisoformat(report["periodEnd"]), summary)
-        )
-    years = {code: company_years(found) for code, found in reports.items()}
+    years = years_by_company(saved)
     bases: dict[str, str] = {}
     for row in rows:
         before = int(row["base_year"]) - 1

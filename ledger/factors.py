@@ -224,8 +224,8 @@ FACTORS = {
 }
 
 
-def main() -> None:
-    deals = load_deals()
+def build_report(deals: list[dict[str, Any]]) -> str:
+    """要因ごとの減損率と ROA の伸び、ほかの要因をそろえた回帰、モデルの当たり具合を Markdown にする。"""
     impaired_deals = [d for d in deals if d["impaired"] is not None]
     big_deals = [d for d in deals if d["roa_success"] is not None]
     lines = [
@@ -349,7 +349,12 @@ def main() -> None:
                 lines.append(
                     f"| {label} | {columns} | {model} | {s['auc']:.3f} | {s['top10_rate']:.1%} | {s['base_rate']:.1%} |"
                 )
-    REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return "\n".join(lines) + "\n"
+
+
+def main() -> None:
+    deals = load_deals()
+    REPORT_PATH.write_text(build_report(deals), encoding="utf-8")
     print(f"{len(deals)} 件：{REPORT_PATH}")
 
 

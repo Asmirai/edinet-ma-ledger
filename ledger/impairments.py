@@ -126,6 +126,21 @@ def label_impairments(
     return labels
 
 
+def count_outcomes(
+    labels: dict[str, tuple[bool | None, str | None]], base_years: dict[str, int], latest_year: int
+) -> dict[str, int]:
+    """判定の結果ごとの件数。3期後の有報が無い案件は、まだ出ていないもの（データの最後の年より後）と、
+    提出が止まったものに分けて数える。
+    """
+    counts: defaultdict[str, int] = defaultdict(int)
+    for key, (value, reason) in labels.items():
+        if reason == "3期後の有報が無い":
+            not_yet = base_years[key] + YEARS_AFTER > latest_year
+            reason = "3期後の有報がまだ出ていない" if not_yet else "3期後の有報の提出が止まった"
+        counts[reason or ("減損した" if value else "減損していない")] += 1
+    return dict(counts)
+
+
 def _deals_and_reports() -> tuple[list[dict[str, Any]], dict[str, list[tuple[date, str]]]]:
     """のれんが生じた主の行と、会社ごとの有報（決算日、docID）を読む。"""
     with LABELED_PATH.open(encoding="utf-8-sig", newline="") as file:
@@ -167,16 +182,9 @@ def main() -> None:
             (key, "" if value is None else value, reason or "")
             for key, (value, reason) in labels.items()
         )
-    # 3期後の有報が無い案件を、まだ出ていないもの（データの最後の年より後）と、提出が止まったものに分ける
     latest_year = max(end.year for found in reports.values() for end, _ in found)
     base_years = {deal["key"]: int(deal["base_year"]) for deal in deals}
-    counts: defaultdict[str, int] = defaultdict(int)
-    for key, (value, reason) in labels.items():
-        if reason == "3期後の有報が無い":
-            not_yet = base_years[key] + YEARS_AFTER > latest_year
-            reason = "3期後の有報がまだ出ていない" if not_yet else "3期後の有報の提出が止まった"
-        counts[reason or ("減損した" if value else "減損していない")] += 1
-    print(f"{dict(counts)}：{IMPAIRMENTS_PATH}")
+    print(f"{count_outcomes(labels, base_years, latest_year)}：{IMPAIRMENTS_PATH}")
 
 
 if __name__ == "__main__":

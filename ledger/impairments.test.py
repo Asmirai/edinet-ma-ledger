@@ -8,6 +8,7 @@ from ledger.chunks import write_chunks
 from ledger.impairments import (
     candidate_items,
     core_name,
+    count_outcomes,
     impairment_passages,
     label_impairments,
     read_impairments,
@@ -144,4 +145,25 @@ def 三期後の有報が無い案件は空にし候補に無い案件は減損�
         "3-E2": (None, "3期後の有報が無い"),
         "4-E1": (None, "事業譲受"),
         "5-E1": (None, "名前が短すぎる"),
+    }
+
+
+def 判定の結果を数え3期後の有報が無いものはまだ出ていないか提出が止まったかに分ける() -> None:
+    labels: dict[str, tuple[bool | None, str | None]] = {
+        "1-E1": (True, None),
+        "2-E1": (False, None),
+        "3-E1": (None, "3期後の有報が無い"),
+        "4-E1": (None, "3期後の有報が無い"),
+        "5-E1": (None, "事業譲受"),
+    }
+    base_years = {"1-E1": 2018, "2-E1": 2018, "3-E1": 2018, "4-E1": 2023, "5-E1": 2019}
+
+    counts = count_outcomes(labels, base_years, latest_year=2025)
+
+    assert counts == {
+        "減損した": 1,
+        "減損していない": 1,
+        "3期後の有報の提出が止まった": 1,
+        "3期後の有報がまだ出ていない": 1,
+        "事業譲受": 1,
     }
