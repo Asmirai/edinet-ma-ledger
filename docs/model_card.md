@@ -7,7 +7,7 @@
 使ってよい用途は次の2つです。
 
 - 買収の候補を、のれんを減損しやすい順に並べる材料にする
-- 記事（[Qiita](https://qiita.com/ykuchiki/items/18d31329d81581d56a61)）の結果を、公開 CSV から再現する
+- 記事（[Qiita](https://qiita.com/ykuchiki/items/18d31329d81581d56a61)・[Zenn](https://zenn.dev/lia/articles/7e8e39691cf520)）の結果を、公開 CSV から再現する
 
 次の用途には使わないでください。
 
