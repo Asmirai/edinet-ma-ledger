@@ -174,7 +174,7 @@ def size_buckets(deals: list[dict[str, Any]], path: Path) -> None:
     fig = _figure(
         "買収の約半分は、買い手の総資産の2%にも満たない",
         f"買収額 ÷ 買った会社の総資産（買収の直前の期）。分析した買収のうち、値の分かる{len(sizes):,}件",
-        "これだけ小さいと、1件の買収の良し悪しは、会社全体の利益率（ROA）の上下に埋もれる。",
+        "買収がこれだけ小さいと、1件の良し悪しは、会社全体の利益率（ROA）にほとんど表れない。",
     )
     ax = fig.add_axes((0.06, 0.22, 0.9, 0.54))
     colors = [INK, INK, LIGHT, LIGHT, LIGHT]
@@ -295,7 +295,7 @@ def confounding(deals: list[dict[str, Any]], path: Path) -> None:
         return sum(d["relatedness"] == "遠い事業" for d in group) / len(group) * 100
 
     fig = _figure(
-        "新規参入が危なく見えたのは、畑違いの買収が多く混ざっていたから",
+        "新規参入の失敗が多く見えたのは、遠い事業の買収が多く含まれていたから",
         f"買う目的が新しい事業への参入だった買収（{len(entry)}件）と、それ以外（{len(other):,}件）",
         "事業の近さは、有価証券報告書の「企業結合を行った主な理由」を AI に読ませて分けた。",
     )
