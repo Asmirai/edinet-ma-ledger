@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "このリポジトリのコードや台帳を使ったときは、次の情報で引用してください。台帳を使うときは、README の出典と加工の記載も表示してください。"
+title: "edinet-ma-ledger: 有価証券報告書から作った上場企業の M&A 台帳と、のれんの減損を予測するモデル"
+type: software
+authors:
+  - name: "Asmirai LLC"
+    alias: "合同会社Asmirai"
+    website: "https://github.com/Asmirai"
+repository-code: "https://github.com/Asmirai/edinet-ma-ledger"
+url: "https://qiita.com/ykuchiki/items/18d31329d81581d56a61"
+abstract: >-
+  上場企業の有価証券報告書（EDINET、2016年10月〜2025年9月提出）の「企業結合等関係」の注記から、
+  Claude で買収を抜き出した台帳（6,405行、買収6,324件）と、
+  4つの変数で買収から3年以内ののれんの減損を予測するロジスティック回帰。
+  コードは MIT ライセンス。台帳は公共データ利用規約（第1.0版）に基づき EDINET のデータを加工したもの。
+keywords:
+  - M&A
+  - EDINET
+  - goodwill impairment
+  - logistic regression
+license: MIT
+version: "2026-10"
+date-released: "2026-10-20"

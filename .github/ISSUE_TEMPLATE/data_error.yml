@@ -1,0 +1,48 @@
+name: 台帳の誤り
+description: ma_ledger.csv の値が、有価証券報告書の原文と違うときに報告する
+title: "台帳の誤り：deal_id "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        台帳の値は AI が注記から抜き出したものです。原文と違う値を見つけたら、次の4つを書いてください。原文で確かめてから直します。
+        出典の書類番号（docID）は、CSV の `source_doc_ids` の列にあります。
+  - type: input
+    id: deal_id
+    attributes:
+      label: deal_id
+      description: 誤りのある行の deal_id
+      placeholder: "例：1234"
+    validations:
+      required: true
+  - type: input
+    id: column
+    attributes:
+      label: 列
+      description: 誤りのある列の名前（docs/ma_ledger_csv.md の列の名前）
+      placeholder: "例：consideration_yen"
+    validations:
+      required: true
+  - type: input
+    id: correct_value
+    attributes:
+      label: 正しい値
+      description: 原文に書かれている値。金額なら原文の単位（円・千円・百万円）も書いてください
+      placeholder: "例：1,200百万円"
+    validations:
+      required: true
+  - type: input
+    id: doc_id
+    attributes:
+      label: 出典の docID
+      description: 正しい値が書かれた有価証券報告書の書類番号（EDINET の docID）
+      placeholder: "例：S100XXXX"
+    validations:
+      required: true
+  - type: textarea
+    id: location
+    attributes:
+      label: 原文の場所
+      description: 正しい値が書かれている所（「企業結合等関係」の注記の何番目の案件か、表のどの行か）。分かる範囲で構いません
+    validations:
+      required: false

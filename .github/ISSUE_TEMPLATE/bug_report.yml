@@ -1,0 +1,35 @@
+name: バグの報告
+description: コマンドがエラーで止まる、README と違う結果が出るときに報告する
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: 起きたこと
+      description: エラーの全文か、出た結果
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現の手順
+      description: 実行したコマンドを順に
+      placeholder: |
+        uv run python -m ledger.scorer examples/candidates.csv
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待した結果
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 環境
+      description: OS、`uv --version` の結果、`git rev-parse --short HEAD` の結果
+      placeholder: "例：macOS 15、uv 0.9.0、f4ac4ce"
+    validations:
+      required: true
