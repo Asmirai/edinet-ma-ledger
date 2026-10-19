@@ -8,7 +8,7 @@
 import csv
 from pathlib import Path
 
-from ledger.factors import PURPOSES_DIR
+from ledger.dataset import PURPOSES_DIR
 from ledger.impairments import IMPAIRMENTS_PATH
 from ledger.purposes import read_purposes
 from ledger.roa import LABELED_PATH

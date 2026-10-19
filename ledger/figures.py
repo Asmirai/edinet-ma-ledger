@@ -14,7 +14,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from ledger.factors import SEED, factor_summary, load_deals
+from ledger.dataset import load_deals
+from ledger.factors import SEED, factor_summary
 from ledger.purposes import LAST_BASE_YEAR
 from ledger.scorer import LAST_TRAIN_YEAR, complete_rows, fit_scorer, holdout, predict, price_curve
 from ledger.scorer import deal_inputs as scorer_inputs

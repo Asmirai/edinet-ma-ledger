@@ -26,8 +26,8 @@ from typing import Any
 
 import pandas as pd
 
-from ledger.factors import load_deals
-from ledger.hypotheses import MAX_GOODWILL_RATIO
+from ledger.dataset import load_deals
+from ledger.features import MAX_GOODWILL_RATIO
 
 REPORT_PATH = Path("data/scorer.md")
 LAST_TRAIN_YEAR = 2019

@@ -17,6 +17,7 @@ from ledger.chunks import read_outputs, write_chunks
 from ledger.roa import LABELED_PATH
 
 # EDINET コードリストの「提出者業種」と同じ書き方にする
+INDUSTRIES_DIR = Path("data/industries")
 INDUSTRIES = (
     "水産・農林業", "鉱業", "建設業", "食料品", "繊維製品", "パルプ・紙", "化学", "医薬品",
     "石油・石炭製品", "ゴム製品", "ガラス・土石製品", "鉄鋼", "非鉄金属", "金属製品", "機械",

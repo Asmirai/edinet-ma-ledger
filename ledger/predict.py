@@ -10,17 +10,15 @@
 import csv
 import importlib
 import math
-import re
-import unicodedata
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from ledger.hypotheses import INDUSTRIES_DIR, deal_features
-from ledger.industries import read_industries
+from ledger.features import deal_features, legal_form_kind, recent_deals, voting_number
+from ledger.industries import INDUSTRIES_DIR, read_industries
 from ledger.roa import LABELED_PATH
 
 REPORT_PATH = Path("data/predict.md")
@@ -35,7 +33,6 @@ NUMERIC = (
 )
 CATEGORICAL = ("industry", "acquiree_industry", "legal_form")
 TOP_SHARE = 0.1
-PRIOR_DAYS = 730
 # scikit-learn には型の情報が無いので、境目で Any として扱う
 sk_compose: Any = importlib.import_module("sklearn.compose")
 sk_ensemble: Any = importlib.import_module("sklearn.ensemble")
@@ -44,32 +41,6 @@ sk_linear: Any = importlib.import_module("sklearn.linear_model")
 sk_metrics: Any = importlib.import_module("sklearn.metrics")
 sk_pipeline: Any = importlib.import_module("sklearn.pipeline")
 sk_preprocessing: Any = importlib.import_module("sklearn.preprocessing")
-
-
-def legal_form_kind(text: str) -> str:
-    """有報に書かれた法的形式を、合併・株式交換・事業譲受・株式取得・その他・不明にまとめる。"""
-    if not text:
-        return "不明"
-    if "合併" in text:
-        return "合併"
-    if "株式交換" in text:
-        return "株式交換"
-    if "事業" in text or "分割" in text:
-        return "事業譲受"
-    if "株式" in text or "持分" in text or "出資" in text:
-        return "株式取得"
-    return "その他"
-
-
-def voting_number(text: str) -> float | None:
-    """議決権比率の数字を読む。「取得後」があればその後ろの最初の数字、無ければ最初の数字。
-
-    後ろに書き添えた間接保有の比率や、2社目の比率は読まない。
-    """
-    normalized = unicodedata.normalize("NFKC", text)
-    after = normalized.split("取得後", 1)[-1]
-    numbers = re.findall(r"\d+(?:\.\d+)?", after)
-    return float(numbers[0]) if numbers else None
 
 
 def model_rows(
@@ -114,13 +85,6 @@ def model_rows(
             }
         )
     return built
-
-
-def recent_deals(dates: list[date], acquired_on: date, ledger_start: date) -> int | None:
-    window_start = acquired_on - timedelta(days=PRIOR_DAYS)
-    if window_start < ledger_start:
-        return None
-    return sum(window_start <= d < acquired_on for d in dates)
 
 
 def split_by_year(
