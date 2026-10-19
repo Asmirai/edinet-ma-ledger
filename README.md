@@ -12,7 +12,7 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Data: PDL 1.0](https://img.shields.io/badge/data-PDL%201.0-2a6f97.svg)](https://www.digital.go.jp/resources/open_data/public_data_license_v1.0)
 
-[シミュレーター](https://asmirai.github.io/edinet-ma-ledger/) ・ [記事（Qiita）](https://qiita.com/ykuchiki/items/18d31329d81581d56a61) ・ [台帳（CSV）](https://github.com/Asmirai/edinet-ma-ledger/releases/latest) ・ [ノートブック](notebooks/quickstart.ipynb) ・ [モデルカード](docs/model_card.md)
+[シミュレーター](https://asmirai.github.io/edinet-ma-ledger/) ・ [記事（Qiita）](https://qiita.com/ykuchiki/items/18d31329d81581d56a61) ・ [記事（Zenn）](https://zenn.dev/lia/articles/7e8e39691cf520) ・ [台帳（CSV）](https://github.com/Asmirai/edinet-ma-ledger/releases/latest) ・ [ノートブック](notebooks/quickstart.ipynb) ・ [モデルカード](docs/model_card.md)
 
 </div>
 
