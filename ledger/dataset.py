@@ -39,7 +39,7 @@ def deal_table(
     profiles: dict[str, dict[str, float | None]],
     bases: dict[str, str],
 ) -> list[dict[str, Any]]:
-    """成否を付けられる年の主の行について、列と2つの物差しを1行にまとめる。分からない値は None。"""
+    """成否を付けられる年の主の行について、列と2つの目的変数を1行にまとめる。分からない値は None。"""
     dates: defaultdict[str, list[date]] = defaultdict(list)
     for row in rows:
         if row["acquisition_date"]:

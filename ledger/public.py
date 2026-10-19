@@ -1,6 +1,6 @@
 """公開用の台帳（ma_ledger.csv）の決まり：置き場所、列、値の種類、成否を付けられる最後の年。
 
-書き出す ledger.export と、読む ledger.scorer・ledger.figures が使う。データ取得の層は import しない。
+どの層からも import してよい。ほかの ledger のモジュールは import しない。
 """
 
 from pathlib import Path
