@@ -281,7 +281,7 @@ def rank_candidates(model: Any, candidates: list[dict[str, Any]]) -> list[tuple[
 def build_report(result: dict[str, Any]) -> str:
     """holdout の結果を Markdown にする。"""
     lines = [
-        "# 4つの数字で、のれんの減損を当てる",
+        "# 上乗せ率・業種の関係・自己資本比率・大きさで、のれんの減損を当てる",
         "",
         f"- {LAST_TRAIN_YEAR}年度までの {result['train_n']} 件で学習し、"
         f"{LAST_TRAIN_YEAR + 1}年度以降の {result['n']} 件で確かめた",

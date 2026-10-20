@@ -108,7 +108,7 @@ def holdout_groups(deals: list[dict[str, Any]], path: Path) -> None:
     rates = [g["rate"] * 100 for g in groups]
     ratio = groups[-1]["rate"] / groups[0]["rate"]
     fig = _figure(
-        f"買う前の4つの数字だけで、失敗率に約{round(ratio)}倍の差がついた",
+        f"AI の判定で、失敗率に約{round(ratio)}倍の差がついた",
         f"{LAST_TRAIN_YEAR}年度までの買収で作った AI を、重みを決めるときに使っていない"
         f"{LAST_TRAIN_YEAR + 1}〜{LAST_BASE_YEAR}年度の{result['n']}件で試した",
         "失敗＝買収から3年以内に、払いすぎを認めて損失にしたもの（のれんの減損）。",
