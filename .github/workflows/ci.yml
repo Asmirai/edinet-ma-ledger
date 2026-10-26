@@ -29,7 +29,7 @@ jobs:
       - name: カバレッジを実行の概要に書く
         if: always()
         run: uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       # ブラウザのシミュレーターが、Python と同じ確率を出すかを確かめる
